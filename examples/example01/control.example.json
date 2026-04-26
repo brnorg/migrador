@@ -1,0 +1,69 @@
+{
+  "templates_root": "./templates",
+  "workspace": "../.repo-template-workspace",
+  "apply_mode": "api",
+  "template": "java",
+  "branch": "chore/bootstrap-{{ project_name | slugify }}",
+  "commit_message": "Bootstrap {{ project_name }}",
+  "pull_request": {
+    "title": "Bootstrap {{ project_name }}",
+    "body": "Aplica o template {{ template }} para {{ project_name }}.",
+    "base": ""
+  },
+  "repositories": [
+    "sua-org/repo-a",
+    "sua-org/repo-b"
+  ],
+  "values": [
+    {
+      "name": "project_name",
+      "label": "Nome do projeto",
+      "value": [
+        "Servico A",
+        "Servico B"
+      ]
+    },
+    {
+      "name": "package_name",
+      "label": "Package/base namespace",
+      "value": "com.example.{{ project_name | slugify | replace('-', '.') }}"
+    },
+    {
+      "name": "runtime_version",
+      "label": "Versao da runtime",
+      "value": "21"
+    }
+  ],
+  "settings": [
+    {
+      "scope": "repository",
+      "type": "variable",
+      "name": "APP_NAME",
+      "value": "{{ project_name | slugify }}"
+    },
+    {
+      "scope": "repository",
+      "type": "secret",
+      "name": "TOKEN_EXEMPLO",
+      "value": ""
+    },
+    {
+      "scope": "environment",
+      "environment": "dev",
+      "type": "variable",
+      "name": "JAVA_VERSION",
+      "value": "{{ runtime_version }}"
+    },
+    {
+      "scope": "environment",
+      "environment": "dev",
+      "type": "secret",
+      "name": "DEV_TOKEN",
+      "value": ""
+    }
+  ],
+  "exclude": [
+    ".git/**",
+    "**/.DS_Store"
+  ]
+}

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repo-template-cli"
+version = "0.3.0"
+description = "CLI para aplicar templates Jinja em repositorios GitHub e configurar variaveis/secrets."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "repo-template-cli" }]
+dependencies = [
+  "jinja2>=3.1",
+  "requests>=2.31",
+  "rich>=13.7"
+]
+
+[project.scripts]
+repo-template = "repo_template_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

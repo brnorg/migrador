@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.repo-template-workspace/
+.venv/
+.tmp-control.json

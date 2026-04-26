@@ -1,0 +1,3 @@
+Arquivo especifico de {{ full_name }}.
+
+Este arquivo nao usa sufixo .j2, mas ainda passa pelo Jinja.

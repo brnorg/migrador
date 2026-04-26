@@ -1,0 +1,3 @@
+Arquivo especifico por org/repo para {{ full_name }}.
+
+Este arquivo fica em _repos/orgs/sua-org/repo-b e tambem passa pelo Jinja.

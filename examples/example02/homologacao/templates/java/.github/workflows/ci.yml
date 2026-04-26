@@ -1,0 +1,11 @@
+name: CI
+
+on:
+  push:
+    branch: feature/migracao
+
+jobs:
+  ci:
+    runs-on: {{ github_runner }}
+    steps:
+      - run: echo "ok ${{ vars.DESTINATION }}"
