@@ -4,3 +4,4 @@ __pycache__/
 .repo-template-workspace/
 .venv/
 .tmp-control.json
+node_modules/
