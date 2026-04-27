@@ -5,3 +5,5 @@ __pycache__/
 .venv/
 .tmp-control.json
 node_modules/
+**control.json**
+esten-vscode/

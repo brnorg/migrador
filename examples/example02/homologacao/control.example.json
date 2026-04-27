@@ -1,0 +1,80 @@
+{
+  "templates_root": "./templates/",
+  "workspace": "./.repo-template-workspace",
+  "apply_mode": "api",
+  "template": "java",
+  "branch": "feature/migracao",
+  "commit_message": "Adicionando arquivos de migracao",
+  "pull_request": {
+    "title": "Migrando do xlrelase e bladeLogic para github actions",
+    "body": "Aplicando arquivos para deploy com github actions",
+    "base": ""
+  },
+  "repositories": [
+    "orgdestino/mock01",
+    "orgdestino/mock02"
+  ],
+  "values": [
+    {
+      "name": "seguimento",
+      "label": "seguimento da gmud",
+      "value": [
+        "seguimento01",
+        "seguimento02"
+      ]
+    },
+    {
+      "name": "portifolio",
+      "label": "portifolio da gmud",
+      "value": "portifolio01"
+    },
+    {
+      "name": "github_runner",
+      "label": "nome do runner a ser usado",
+      "value": "ubuntu-latest"
+    }
+  ],
+  "settings": [
+    {
+      "scope": "repository",
+      "type": "variable",
+      "name": "DESTINATION",
+      "value": [
+        "server01.int.corp,server02.int3.corp",
+        "server4.int.corp,server5.int.corp"
+      ]
+    },
+    {
+      "scope": "repository",
+      "type": "secret",
+      "name": "TOKEN_EXEMPLO",
+      "value": "123456789"
+    },
+    {
+      "scope": "environment",
+      "environment": "qaa",
+      "type": "secret",
+      "name": "TOKEN_DE_QAA",
+      "value": "123456789"
+    },
+    {
+      "scope": "environment",
+      "environment": "dev",
+      "type": "secret",
+      "name": "TOKEN_DE_DEV",
+      "value": "123456789"
+    },
+    {
+      "scope": "environment",
+      "environment": "dev",
+      "type": "variable",
+      "name": "JAVA_VERSION",
+      "value": "17"
+    }
+  ],
+  "exclude": [
+    ".git/**",
+    "**/.DS_Store",
+    "**control.json**"
+  ]
+}
