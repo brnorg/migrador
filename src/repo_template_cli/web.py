@@ -1,0 +1,1498 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+import uuid
+import webbrowser
+
+from .cli import example_config
+
+
+HTML = r"""<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>repo-template</title>
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --panel: rgba(255, 255, 255, 0.88);
+      --line: #d8d8de;
+      --line-soft: #ececf1;
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --blue: #0071e3;
+      --blue-dark: #005bbd;
+      --green: #148a45;
+      --orange: #b06000;
+      --red: #c62929;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 0%, rgba(0, 113, 227, 0.10), transparent 28rem),
+        linear-gradient(180deg, #fbfbfd 0%, var(--bg) 42%, #ffffff 100%);
+      letter-spacing: 0;
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      min-height: 36px;
+      padding: 0 14px;
+      color: var(--text);
+      background: #eeeeef;
+    }
+
+    button:hover { background: #e4e4e8; }
+    button.primary {
+      color: white;
+      background: var(--blue);
+    }
+    button.primary:hover { background: var(--blue-dark); }
+    button.danger {
+      color: white;
+      background: var(--red);
+    }
+    button.ghost {
+      background: transparent;
+      border: 1px solid var(--line);
+    }
+    button.icon {
+      width: 36px;
+      padding: 0;
+      font-weight: 700;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--text);
+      outline: none;
+      padding: 10px 12px;
+      min-height: 38px;
+    }
+
+    textarea {
+      min-height: 78px;
+      resize: vertical;
+      font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.14);
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 304px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 22px;
+      background: rgba(255, 255, 255, 0.72);
+      border-right: 1px solid var(--line-soft);
+      backdrop-filter: blur(22px);
+    }
+
+    main {
+      min-width: 0;
+      padding: 28px clamp(18px, 4vw, 48px) 42px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 26px;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      color: white;
+      background: linear-gradient(135deg, #111827, #0071e3);
+      box-shadow: var(--shadow);
+    }
+
+    .side-block {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .side-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.04;
+      font-weight: 760;
+      max-width: 780px;
+    }
+
+    .file-state {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.74);
+      color: var(--muted);
+      font-size: 12px;
+      max-width: 420px;
+      overflow-wrap: anywhere;
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(242, 242, 247, 0.8);
+      margin-bottom: 22px;
+    }
+
+    .tab {
+      min-height: 34px;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .tab.active {
+      background: white;
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .panel {
+      display: none;
+    }
+
+    .panel.active {
+      display: grid;
+      gap: 22px;
+    }
+
+    .surface {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+    }
+
+    .section-body {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid .wide { grid-column: 1 / -1; }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 8px;
+      background: #ededf2;
+    }
+
+    .segmented button {
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .segmented button.active {
+      background: #ffffff;
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .list {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .list-row {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .list-row:last-child { border-bottom: 0; }
+
+    .row-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .value-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #f8f8fb;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .repo-value-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .checks {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .check {
+      display: flex;
+      grid-template-columns: none;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .check input {
+      width: 16px;
+      height: 16px;
+      min-height: 16px;
+      padding: 0;
+    }
+
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .json-editor {
+      min-height: 620px;
+    }
+
+    .job-layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .jobs-list {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: white;
+      overflow: hidden;
+    }
+
+    .job-item {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 5px 10px;
+      border-radius: 0;
+      border-bottom: 1px solid var(--line-soft);
+      background: white;
+      padding: 12px;
+      text-align: left;
+    }
+
+    .job-item:last-child { border-bottom: 0; }
+    .job-item.active { background: #f2f7ff; }
+    .job-name { font-weight: 700; }
+    .job-meta { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eeeeef;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .badge.running { color: var(--blue); background: rgba(0, 113, 227, 0.10); }
+    .badge.done { color: var(--green); background: rgba(20, 138, 69, 0.10); }
+    .badge.failed { color: var(--red); background: rgba(198, 41, 41, 0.10); }
+    .badge.queued { color: var(--orange); background: rgba(176, 96, 0, 0.10); }
+
+    pre {
+      margin: 0;
+      min-height: 520px;
+      max-height: 68vh;
+      overflow: auto;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #0f172a;
+      color: #dbeafe;
+      padding: 16px;
+      font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      max-width: min(420px, calc(100vw - 40px));
+      padding: 12px 14px;
+      border-radius: 8px;
+      color: white;
+      background: rgba(29, 29, 31, 0.94);
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: 160ms ease;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 940px) {
+      .app { grid-template-columns: 1fr; }
+      aside {
+        position: relative;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .topbar { flex-direction: column; }
+      .file-state { max-width: 100%; }
+      .grid, .grid.three, .job-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand"><span class="brand-mark">rt</span><span>repo-template</span></div>
+      <div class="side-block">
+        <div class="side-title">Arquivo</div>
+        <input id="configPath" aria-label="Arquivo de controle">
+        <div class="button-grid">
+          <button id="loadBtn">Carregar</button>
+          <button id="saveBtn" class="primary">Salvar</button>
+        </div>
+      </div>
+      <div class="side-block">
+        <div class="side-title">CLI</div>
+        <button id="validateBtn">Validar JSON</button>
+        <button id="checkLocalBtn">Check local</button>
+        <button id="checkRemoteBtn">Check remoto</button>
+        <button id="planBtn" class="primary">Planejar</button>
+        <label class="check"><input id="runCheck" type="checkbox" checked> Check antes de executar</label>
+        <button id="executeBtn" class="danger">Executar</button>
+      </div>
+      <div class="side-block">
+        <div class="side-title">Status</div>
+        <div id="quickStatus" class="file-state">Pronto</div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <h1>Controle de execucao</h1>
+        </div>
+        <div id="fileState" class="file-state"></div>
+      </div>
+
+      <nav class="tabs" aria-label="Areas">
+        <button class="tab active" data-tab="editor">Editor</button>
+        <button class="tab" data-tab="json">JSON</button>
+        <button class="tab" data-tab="jobs">Execucoes</button>
+      </nav>
+
+      <section id="editorPanel" class="panel active">
+        <div class="surface">
+          <div class="section-head"><h2>Fluxo</h2></div>
+          <div class="section-body">
+            <div class="grid three">
+              <label>Templates root<input data-bind="templates_root"></label>
+              <label>Workspace<input data-bind="workspace"></label>
+              <label>Template padrao<input data-bind="template"></label>
+              <label class="wide">Branch<input data-bind="branch"></label>
+              <label class="wide">Commit<textarea data-bind="commit_message"></textarea></label>
+              <label>Modo de envio
+                <div class="segmented" id="applyMode">
+                  <button data-mode="api" type="button">API</button>
+                  <button data-mode="git" type="button">Git</button>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="surface">
+          <div class="section-head"><h2>Pull request</h2></div>
+          <div class="section-body">
+            <div class="grid">
+              <label>Titulo<input data-bind="pull_request.title"></label>
+              <label>Base<input data-bind="pull_request.base" placeholder="branch padrao"></label>
+              <label class="wide">Body<textarea data-bind="pull_request.body"></textarea></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="surface">
+          <div class="section-head">
+            <h2>Repositorios</h2>
+            <button class="icon" id="addRepoBtn" title="Adicionar repositorio">+</button>
+          </div>
+          <div class="section-body"><div id="repositoriesList" class="list"></div></div>
+        </div>
+
+        <div class="surface">
+          <div class="section-head">
+            <h2>Campos Jinja</h2>
+            <button class="icon" id="addValueBtn" title="Adicionar campo">+</button>
+          </div>
+          <div class="section-body"><div id="valuesList" class="list"></div></div>
+        </div>
+
+        <div class="surface">
+          <div class="section-head">
+            <h2>Vars e secrets</h2>
+            <button class="icon" id="addSettingBtn" title="Adicionar item">+</button>
+          </div>
+          <div class="section-body"><div id="settingsList" class="list"></div></div>
+        </div>
+
+        <div class="surface">
+          <div class="section-head"><h2>Excludes</h2></div>
+          <div class="section-body">
+            <label>Padroes ignorados<textarea id="excludeText"></textarea></label>
+          </div>
+        </div>
+      </section>
+
+      <section id="jsonPanel" class="panel">
+        <div class="surface">
+          <div class="section-head">
+            <h2>JSON bruto</h2>
+            <div class="checks">
+              <button id="applyJsonBtn">Aplicar JSON</button>
+              <button id="formatJsonBtn">Formatar</button>
+            </div>
+          </div>
+          <div class="section-body">
+            <textarea id="jsonEditor" class="json-editor" spellcheck="false"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section id="jobsPanel" class="panel">
+        <div class="surface">
+          <div class="section-head"><h2>Execucoes</h2></div>
+          <div class="section-body">
+            <div class="job-layout">
+              <div id="jobsList" class="jobs-list"></div>
+              <pre id="jobOutput">Nenhuma execucao ainda.</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const initialPath = "__INITIAL_CONFIG__";
+    const state = {
+      data: {},
+      exists: false,
+      activeTab: "editor",
+      selectedJob: null,
+      expandedRepos: new Set(),
+      jobs: []
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function getPath() {
+      return $("#configPath").value.trim() || initialPath;
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(path, {
+        headers: { "Content-Type": "application/json" },
+        ...options
+      });
+      const text = await response.text();
+      let body = null;
+      try { body = text ? JSON.parse(text) : {}; } catch (_) { body = { error: text }; }
+      if (!response.ok) throw new Error(body.error || "Falha na requisicao");
+      return body;
+    }
+
+    function toast(message) {
+      const el = $("#toast");
+      el.textContent = message;
+      el.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => el.classList.remove("show"), 2600);
+    }
+
+    function normalize(data) {
+      const next = structuredClone(data || {});
+      next.templates_root ??= "./templates";
+      next.workspace ??= "./.repo-template-workspace";
+      next.apply_mode ??= "api";
+      next.template ??= "";
+      next.branch ??= "";
+      next.commit_message ??= "Apply template";
+      next.pull_request ??= {};
+      next.pull_request.title ??= next.pr_title || "Apply template";
+      next.pull_request.body ??= next.pr_body || "Template applied by repo-template.";
+      next.pull_request.base ??= next.base || "";
+      next.repositories = Array.isArray(next.repositories) ? next.repositories : [];
+      next.values = Array.isArray(next.values) ? next.values : [];
+      next.settings = Array.isArray(next.settings) ? next.settings : [];
+      next.exclude = Array.isArray(next.exclude) ? next.exclude : [];
+      return next;
+    }
+
+    function setByPath(path, value) {
+      const parts = path.split(".");
+      let target = state.data;
+      while (parts.length > 1) {
+        const part = parts.shift();
+        target[part] ??= {};
+        target = target[part];
+      }
+      target[parts[0]] = value;
+    }
+
+    function getByPath(path) {
+      return path.split(".").reduce((value, part) => value?.[part], state.data) ?? "";
+    }
+
+    function valueToText(value) {
+      if (Array.isArray(value) || (value && typeof value === "object")) {
+        return JSON.stringify(value, null, 2);
+      }
+      return String(value ?? "");
+    }
+
+    function parseValue(text) {
+      const trimmed = text.trim();
+      if (!trimmed) return "";
+      if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+        return JSON.parse(trimmed);
+      }
+      return text;
+    }
+
+    function repoLabel(repo) {
+      if (typeof repo === "string") return repo;
+      if (!repo || typeof repo !== "object") return "";
+      return repo.repo || repo.full_name || (repo.owner && repo.name ? `${repo.owner}/${repo.name}` : repo.url || "");
+    }
+
+    function repoLabelAt(index) {
+      return repoLabel(state.data.repositories[index]) || `repositorio ${index + 1}`;
+    }
+
+    function slotCountForArray(value) {
+      return Math.max(state.data.repositories.length, Array.isArray(value) ? value.length : 0, 1);
+    }
+
+    function valueLabel(name, index) {
+      return name || `campo ${index + 1}`;
+    }
+
+    function renderValueControl(kind, field, index, value, positionAttr, position, isSecret) {
+      const positionPart = positionAttr ? ` ${positionAttr}="${position}"` : "";
+      if (isSecret) {
+        return `<input type="password" ${kind === "value" ? "data-value-field" : "data-setting-field"}="${field}"${positionPart} data-index="${index}" data-secret-mask="true" value="${escapeHtml(valueToText(value))}">`;
+      }
+      return `<textarea ${kind === "value" ? "data-value-field" : "data-setting-field"}="${field}"${positionPart} data-index="${index}">${escapeHtml(valueToText(value))}</textarea>`;
+    }
+
+    function renderScopedValueEditor(kind, index, name, value, isSecret = false) {
+      const isArray = Array.isArray(value);
+      const modeAttr = kind === "value" ? "data-value-mode" : "data-setting-mode";
+      const positionAttr = kind === "value" ? "data-value-position" : "data-setting-position";
+
+      if (!isArray) {
+        return `
+          <div class="value-toolbar">
+            <span>${escapeHtml(name)} aplicado dessa forma para todos os repositorios</span>
+            <button type="button" ${modeAttr}="array" data-index="${index}">Separar por repositorio</button>
+          </div>
+          <label class="wide">Valor${renderValueControl(kind, "value-single", index, value, "", "", isSecret)}</label>`;
+      }
+
+      const rows = Array.from({ length: slotCountForArray(value) }, (_, repoIndex) => {
+        const repoName = repoIndex < state.data.repositories.length
+          ? repoLabelAt(repoIndex)
+          : `sem repositorio #${repoIndex + 1}`;
+        return `
+          <label>${escapeHtml(name)} para o repo: ${escapeHtml(repoName)}
+            ${renderValueControl(kind, "value-array", index, value[repoIndex], positionAttr, repoIndex, isSecret)}
+          </label>`;
+      }).join("");
+
+      return `
+        <div class="value-toolbar">
+          <span>Valor separado por repositorio</span>
+          <button type="button" ${modeAttr}="single" data-index="${index}">Usar valor unico</button>
+        </div>
+        <div class="repo-value-list wide">${rows}</div>`;
+    }
+
+    function syncRaw() {
+      $("#jsonEditor").value = JSON.stringify(state.data, null, 2);
+    }
+
+    function updateStateLabels() {
+      $("#fileState").textContent = `${state.exists ? "Editando" : "Novo arquivo"}: ${getPath()}`;
+      $("#quickStatus").textContent = state.jobs.find((job) => job.status === "running")
+        ? "Comando em execucao"
+        : "Pronto";
+    }
+
+    function render() {
+      state.data = normalize(state.data);
+      $$("[data-bind]").forEach((input) => { input.value = getByPath(input.dataset.bind); });
+      $$("#applyMode button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.mode === state.data.apply_mode);
+      });
+      renderRepositories();
+      renderValues();
+      renderSettings();
+      $("#excludeText").value = state.data.exclude.join("\n");
+      syncRaw();
+      updateStateLabels();
+    }
+
+    function renderRepositories() {
+      const list = $("#repositoriesList");
+      if (!state.data.repositories.length) {
+        list.innerHTML = '<div class="empty">Nenhum repositorio.</div>';
+        return;
+      }
+      list.innerHTML = state.data.repositories.map((repo, index) => {
+        const objectRepo = typeof repo === "object" && repo !== null ? repo : {};
+        const expanded = state.expandedRepos.has(index);
+        return `
+          <div class="list-row" data-index="${index}">
+            <div class="row-head">
+              <span>Repositorio ${index + 1}</span>
+              <div class="checks">
+                <button type="button" data-toggle-repo-details="${index}">${expanded ? "Ocultar" : "Detalhes"}</button>
+                <button class="icon" data-remove-repo="${index}" title="Remover">x</button>
+              </div>
+            </div>
+            <div class="grid">
+              <label class="${expanded ? "" : "wide"}">Owner/name ou URL<input data-repo-field="repo" data-index="${index}" value="${escapeHtml(repoLabel(repo))}"></label>
+              ${expanded ? `
+                <label>Template<input data-repo-field="template" data-index="${index}" value="${escapeHtml(objectRepo.template || "")}"></label>
+                <label>Branch<input data-repo-field="branch" data-index="${index}" value="${escapeHtml(objectRepo.branch || objectRepo.branch_name || "")}"></label>
+                <label>Base<input data-repo-field="base" data-index="${index}" value="${escapeHtml(objectRepo.base || objectRepo.default_branch || "")}"></label>
+              ` : ""}
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function renderValues() {
+      const list = $("#valuesList");
+      if (!state.data.values.length) {
+        list.innerHTML = '<div class="empty">Nenhum campo.</div>';
+        return;
+      }
+      list.innerHTML = state.data.values.map((field, index) => {
+        const name = valueLabel(field.name || field.label, index);
+        return `
+          <div class="list-row" data-index="${index}">
+            <div class="row-head"><span>Campo ${index + 1}</span><button class="icon" data-remove-value="${index}" title="Remover">x</button></div>
+            <div class="grid">
+              <label>Nome<input data-value-field="name" data-index="${index}" value="${escapeHtml(field.name || "")}"></label>
+              <label>Label<input data-value-field="label" data-index="${index}" value="${escapeHtml(field.label || "")}"></label>
+              ${renderScopedValueEditor("value", index, name, field.value)}
+            </div>
+            <div class="checks">
+              <label class="check"><input type="checkbox" data-value-field="required" data-index="${index}" ${field.required === false ? "" : "checked"}> Obrigatorio</label>
+              <label class="check"><input type="checkbox" data-value-field="render" data-index="${index}" ${field.render === false ? "" : "checked"}> Renderizar Jinja</label>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function renderSettings() {
+      const list = $("#settingsList");
+      if (!state.data.settings.length) {
+        list.innerHTML = '<div class="empty">Nenhuma variavel ou secret.</div>';
+        return;
+      }
+      list.innerHTML = state.data.settings.map((setting, index) => {
+        const name = valueLabel(setting.name, index);
+        const isEnvironment = setting.scope === "environment";
+        const isSecret = setting.type === "secret";
+        return `
+          <div class="list-row" data-index="${index}">
+            <div class="row-head"><span>Item ${index + 1}</span><button class="icon" data-remove-setting="${index}" title="Remover">x</button></div>
+            <div class="grid three">
+              <label>Escopo
+                <select data-setting-field="scope" data-index="${index}">
+                  <option value="repository" ${setting.scope !== "environment" ? "selected" : ""}>Repository</option>
+                  <option value="environment" ${setting.scope === "environment" ? "selected" : ""}>Environment</option>
+                </select>
+              </label>
+              <label>Tipo
+                <select data-setting-field="type" data-index="${index}">
+                  <option value="variable" ${setting.type !== "secret" ? "selected" : ""}>Variable</option>
+                  <option value="secret" ${setting.type === "secret" ? "selected" : ""}>Secret</option>
+                </select>
+              </label>
+              ${isEnvironment ? `<label>Environment<input data-setting-field="environment" data-index="${index}" value="${escapeHtml(setting.environment || "")}"></label>` : ""}
+              <label>Nome<input data-setting-field="name" data-index="${index}" value="${escapeHtml(setting.name || "")}"></label>
+              ${renderScopedValueEditor("setting", index, name, setting.value, isSecret)}
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    function bindEditor() {
+      document.body.addEventListener("input", (event) => {
+        const target = event.target;
+        if (target.matches("[data-bind]")) {
+          setByPath(target.dataset.bind, target.value);
+          syncRaw();
+          updateStateLabels();
+        }
+        if (target.id === "excludeText") {
+          state.data.exclude = target.value.split("\n").map((line) => line.trim()).filter(Boolean);
+          syncRaw();
+        }
+        if (target.matches("[data-repo-field]")) {
+          updateRepo(Number(target.dataset.index), target.dataset.repoField, target.value);
+          syncRaw();
+        }
+        if (target.matches("[data-value-field]")) {
+          updateValue(Number(target.dataset.index), target.dataset.valueField, target);
+          syncRaw();
+        }
+        if (target.matches("[data-setting-field]")) {
+          updateSetting(Number(target.dataset.index), target.dataset.settingField, target);
+          syncRaw();
+        }
+      });
+
+      document.body.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!target.matches("select[data-setting-field]")) return;
+        updateSetting(Number(target.dataset.index), target.dataset.settingField, target);
+        syncRaw();
+        render();
+      });
+
+      document.body.addEventListener("focusin", (event) => {
+        const target = event.target;
+        if (target.matches("input[data-secret-mask]")) {
+          target.type = "text";
+        }
+      });
+
+      document.body.addEventListener("focusout", (event) => {
+        const target = event.target;
+        if (target.matches("input[data-secret-mask]")) {
+          target.type = "password";
+        }
+      });
+
+      document.body.addEventListener("click", (event) => {
+        const target = event.target;
+        if (target.matches("[data-mode]")) {
+          state.data.apply_mode = target.dataset.mode;
+          render();
+        }
+        if (target.matches("[data-remove-repo]")) {
+          removeRepository(Number(target.dataset.removeRepo));
+          render();
+        }
+        if (target.matches("[data-toggle-repo-details]")) {
+          toggleRepoDetails(Number(target.dataset.toggleRepoDetails));
+          render();
+        }
+        if (target.matches("[data-remove-value]")) {
+          state.data.values.splice(Number(target.dataset.removeValue), 1);
+          render();
+        }
+        if (target.matches("[data-value-mode]")) {
+          convertValueMode(Number(target.dataset.index), target.dataset.valueMode);
+          render();
+        }
+        if (target.matches("[data-setting-mode]")) {
+          convertSettingMode(Number(target.dataset.index), target.dataset.settingMode);
+          render();
+        }
+        if (target.matches("[data-remove-setting]")) {
+          state.data.settings.splice(Number(target.dataset.removeSetting), 1);
+          render();
+        }
+      });
+    }
+
+    function addRepository() {
+      state.data.repositories.push("");
+      forEachRepoArray((values) => values.push(""));
+    }
+
+    function removeRepository(index) {
+      state.data.repositories.splice(index, 1);
+      forEachRepoArray((values) => {
+        if (index < values.length) values.splice(index, 1);
+      });
+      const nextExpanded = new Set();
+      for (const repoIndex of state.expandedRepos) {
+        if (repoIndex < index) nextExpanded.add(repoIndex);
+        if (repoIndex > index) nextExpanded.add(repoIndex - 1);
+      }
+      state.expandedRepos = nextExpanded;
+    }
+
+    function forEachRepoArray(callback) {
+      for (const field of state.data.values) {
+        if (Array.isArray(field.value)) callback(field.value);
+      }
+      for (const setting of state.data.settings) {
+        if (Array.isArray(setting.value)) callback(setting.value);
+      }
+    }
+
+    function toggleRepoDetails(index) {
+      if (state.expandedRepos.has(index)) {
+        state.expandedRepos.delete(index);
+      } else {
+        state.expandedRepos.add(index);
+      }
+    }
+
+    function updateRepo(index, field, value) {
+      const current = state.data.repositories[index];
+      if (typeof current === "string" && field === "repo") {
+        state.data.repositories[index] = value;
+        return;
+      }
+      const next = typeof current === "object" && current !== null ? { ...current } : { repo: repoLabel(current) };
+      if (field === "repo") {
+        delete next.owner;
+        delete next.name;
+        delete next.full_name;
+        delete next.url;
+        if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("git@")) {
+          next.url = value;
+        } else {
+          next.repo = value;
+        }
+        state.data.repositories[index] = next;
+        return;
+      }
+      next[field] = value;
+      state.data.repositories[index] = next;
+    }
+
+    function updateValue(index, field, target) {
+      const item = { ...(state.data.values[index] || {}) };
+      if (target.type === "checkbox") {
+        item[field] = target.checked;
+      } else if (field === "value-single") {
+        try { item.value = parseValue(target.value); } catch (_) { item.value = target.value; }
+      } else if (field === "value-array") {
+        const position = Number(target.dataset.valuePosition);
+        const values = Array.isArray(item.value) ? [...item.value] : [];
+        try { values[position] = parseValue(target.value); } catch (_) { values[position] = target.value; }
+        item.value = values;
+      } else {
+        item[field] = target.value;
+      }
+      state.data.values[index] = item;
+    }
+
+    function convertValueMode(index, mode) {
+      const item = { ...(state.data.values[index] || {}) };
+      if (mode === "array") {
+        const current = item.value ?? "";
+        item.value = Array.from({ length: Math.max(state.data.repositories.length, 1) }, () => current);
+      } else {
+        item.value = Array.isArray(item.value) ? (item.value[0] ?? "") : (item.value ?? "");
+      }
+      state.data.values[index] = item;
+    }
+
+    function updateSetting(index, field, target) {
+      const item = { ...(state.data.settings[index] || {}) };
+      if (field === "value-single") {
+        try { item.value = parseValue(target.value); } catch (_) { item.value = target.value; }
+      } else if (field === "value-array") {
+        const position = Number(target.dataset.settingPosition);
+        const values = Array.isArray(item.value) ? [...item.value] : [];
+        try { values[position] = parseValue(target.value); } catch (_) { values[position] = target.value; }
+        item.value = values;
+      } else {
+        item[field] = target.value;
+        if (field === "scope" && target.value !== "environment") {
+          delete item.environment;
+        }
+        if (field === "scope" && target.value === "environment") {
+          item.environment ??= "";
+        }
+      }
+      state.data.settings[index] = item;
+    }
+
+    function convertSettingMode(index, mode) {
+      const item = { ...(state.data.settings[index] || {}) };
+      if (mode === "array") {
+        const current = item.value ?? "";
+        item.value = Array.from({ length: Math.max(state.data.repositories.length, 1) }, () => current);
+      } else {
+        item.value = Array.isArray(item.value) ? (item.value[0] ?? "") : (item.value ?? "");
+      }
+      state.data.settings[index] = item;
+    }
+
+    async function loadConfig() {
+      const path = encodeURIComponent(getPath());
+      const body = await request(`/api/config?path=${path}`);
+      state.data = normalize(body.data);
+      state.exists = body.exists;
+      $("#configPath").value = body.path;
+      render();
+      toast(body.exists ? "Arquivo carregado" : "Exemplo inicial carregado");
+    }
+
+    async function saveConfig() {
+      const body = await request("/api/config", {
+        method: "POST",
+        body: JSON.stringify({ path: getPath(), data: state.data })
+      });
+      state.exists = true;
+      $("#configPath").value = body.path;
+      updateStateLabels();
+      toast("JSON salvo");
+    }
+
+    async function startJob(action) {
+      if (action === "execute") {
+        const ok = confirm("Executar agora usando o arquivo de controle atual?");
+        if (!ok) return;
+      }
+      const body = await request("/api/job", {
+        method: "POST",
+        body: JSON.stringify({
+          action,
+          path: getPath(),
+          data: state.data,
+          options: { check: $("#runCheck").checked }
+        })
+      });
+      state.selectedJob = body.job.id;
+      switchTab("jobs");
+      await refreshJobs();
+      toast("Comando iniciado");
+    }
+
+    async function refreshJobs() {
+      const body = await request("/api/jobs");
+      state.jobs = body.jobs;
+      if (!state.selectedJob && state.jobs[0]) state.selectedJob = state.jobs[0].id;
+      renderJobs();
+      updateStateLabels();
+    }
+
+    function renderJobs() {
+      const list = $("#jobsList");
+      if (!state.jobs.length) {
+        list.innerHTML = '<div class="empty">Nenhuma execucao.</div>';
+        $("#jobOutput").textContent = "Nenhuma execucao ainda.";
+        return;
+      }
+      list.innerHTML = state.jobs.map((job) => `
+        <button class="job-item ${job.id === state.selectedJob ? "active" : ""}" data-job-id="${job.id}">
+          <span class="job-name">${escapeHtml(job.action)}</span>
+          <span class="badge ${escapeHtml(job.status)}">${escapeHtml(job.status)}</span>
+          <span class="job-meta">${escapeHtml(job.config_path)}</span>
+          <span class="job-meta">${escapeHtml(job.started_at || "")}</span>
+        </button>`).join("");
+
+      const selected = state.jobs.find((job) => job.id === state.selectedJob) || state.jobs[0];
+      $("#jobOutput").textContent = selected
+        ? [`$ ${selected.command.join(" ")}`, "", selected.output.join("")].join("\n")
+        : "Nenhuma execucao ainda.";
+    }
+
+    function switchTab(tab) {
+      state.activeTab = tab;
+      $$(".tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
+      $$(".panel").forEach((panel) => panel.classList.remove("active"));
+      $(`#${tab}Panel`).classList.add("active");
+    }
+
+    function bindChrome() {
+      $$(".tab").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.tab)));
+      $("#loadBtn").addEventListener("click", () => loadConfig().catch((error) => toast(error.message)));
+      $("#saveBtn").addEventListener("click", () => saveConfig().catch((error) => toast(error.message)));
+      $("#validateBtn").addEventListener("click", () => startJob("validate").catch((error) => toast(error.message)));
+      $("#checkLocalBtn").addEventListener("click", () => startJob("check-local").catch((error) => toast(error.message)));
+      $("#checkRemoteBtn").addEventListener("click", () => startJob("check-remote").catch((error) => toast(error.message)));
+      $("#planBtn").addEventListener("click", () => startJob("plan").catch((error) => toast(error.message)));
+      $("#executeBtn").addEventListener("click", () => startJob("execute").catch((error) => toast(error.message)));
+      $("#addRepoBtn").addEventListener("click", () => {
+        addRepository();
+        render();
+      });
+      $("#addValueBtn").addEventListener("click", () => {
+        state.data.values.push({ name: "", label: "", value: "" });
+        render();
+      });
+      $("#addSettingBtn").addEventListener("click", () => {
+        state.data.settings.push({ scope: "repository", type: "variable", name: "", value: "" });
+        render();
+      });
+      $("#applyJsonBtn").addEventListener("click", () => {
+        try {
+          state.data = normalize(JSON.parse($("#jsonEditor").value));
+          render();
+          toast("JSON aplicado");
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+      $("#formatJsonBtn").addEventListener("click", () => {
+        try {
+          state.data = normalize(JSON.parse($("#jsonEditor").value));
+          syncRaw();
+          toast("JSON formatado");
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+      $("#jobsList").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-job-id]");
+        if (!button) return;
+        state.selectedJob = button.dataset.jobId;
+        renderJobs();
+      });
+    }
+
+    bindEditor();
+    bindChrome();
+    $("#configPath").value = initialPath;
+    loadConfig().catch((error) => toast(error.message));
+    setInterval(() => refreshJobs().catch(() => {}), 1400);
+  </script>
+</body>
+</html>
+"""
+
+
+@dataclass
+class Job:
+    id: str
+    action: str
+    config_path: str
+    command: list[str]
+    status: str = "queued"
+    started_at: str = ""
+    ended_at: str = ""
+    returncode: int | None = None
+    output: list[str] = field(default_factory=list)
+    lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def append(self, text: str) -> None:
+        with self.lock:
+            self.output.append(text)
+            if len(self.output) > 4000:
+                self.output = self.output[-4000:]
+
+    def snapshot(self) -> dict[str, Any]:
+        with self.lock:
+            return {
+                "id": self.id,
+                "action": self.action,
+                "config_path": self.config_path,
+                "command": self.command,
+                "status": self.status,
+                "started_at": self.started_at,
+                "ended_at": self.ended_at,
+                "returncode": self.returncode,
+                "output": list(self.output),
+            }
+
+
+class WebApp:
+    def __init__(self, initial_config: Path, cwd: Path) -> None:
+        self.initial_config = self.resolve_path(str(initial_config), cwd)
+        self.cwd = cwd
+        self.jobs: dict[str, Job] = {}
+        self.jobs_order: list[str] = []
+        self.lock = threading.Lock()
+
+    @staticmethod
+    def resolve_path(value: str, base: Path) -> Path:
+        path = Path(value or "control.json").expanduser()
+        if not path.is_absolute():
+            path = base / path
+        return path.resolve()
+
+    def load_config(self, value: str | None) -> dict[str, Any]:
+        path = self.resolve_path(value or str(self.initial_config), self.cwd)
+        if not path.exists():
+            return {"path": str(path), "exists": False, "data": example_config()}
+        with path.open("r", encoding="utf-8-sig") as file:
+            return {"path": str(path), "exists": True, "data": json.load(file)}
+
+    def save_config(self, value: str, data: Any) -> dict[str, Any]:
+        path = self.resolve_path(value, self.cwd)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as file:
+            json.dump(data, file, indent=2, ensure_ascii=False)
+            file.write("\n")
+        return {"path": str(path), "exists": True}
+
+    def start_job(
+        self,
+        action: str,
+        config_path: str,
+        data: Any | None,
+        options: dict[str, Any] | None = None,
+    ) -> Job:
+        path = self.resolve_path(config_path, self.cwd)
+        if data is not None:
+            self.save_config(str(path), data)
+        command = self.command_for(action, path, options or {})
+        job = Job(
+            id=uuid.uuid4().hex[:12],
+            action=action,
+            config_path=str(path),
+            command=command,
+        )
+        with self.lock:
+            self.jobs[job.id] = job
+            self.jobs_order.insert(0, job.id)
+            for stale_id in self.jobs_order[30:]:
+                self.jobs.pop(stale_id, None)
+            del self.jobs_order[30:]
+        thread = threading.Thread(target=self._run_job, args=(job,), daemon=True)
+        thread.start()
+        return job
+
+    def command_for(self, action: str, config_path: Path, options: dict[str, Any]) -> list[str]:
+        base = [sys.executable, "-m", "repo_template_cli.cli"]
+        path_args = ["--config", str(config_path)]
+        if action == "validate":
+            return [*base, "validate", *path_args]
+        if action == "check-local":
+            return [*base, "check", *path_args, "--local", "--non-interactive"]
+        if action == "check-remote":
+            return [*base, "check", *path_args, "--non-interactive"]
+        if action == "plan":
+            return [*base, "run", *path_args, "--dry-run", "--yes", "--non-interactive"]
+        if action == "execute":
+            command = [*base, "run", *path_args, "--yes", "--non-interactive"]
+            if options.get("check"):
+                command.append("--check")
+            return command
+        raise ValueError(f"Acao desconhecida: {action}")
+
+    def list_jobs(self) -> list[dict[str, Any]]:
+        with self.lock:
+            ids = list(self.jobs_order)
+        return [self.jobs[job_id].snapshot() for job_id in ids if job_id in self.jobs]
+
+    def get_job(self, job_id: str) -> dict[str, Any] | None:
+        job = self.jobs.get(job_id)
+        return job.snapshot() if job else None
+
+    def _run_job(self, job: Job) -> None:
+        env = os.environ.copy()
+        env["NO_COLOR"] = "1"
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+        source_root = str(Path(__file__).resolve().parents[1])
+        env["PYTHONPATH"] = (
+            source_root
+            if not env.get("PYTHONPATH")
+            else f"{source_root}{os.pathsep}{env['PYTHONPATH']}"
+        )
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        with job.lock:
+            job.status = "running"
+            job.started_at = _now()
+        try:
+            process = subprocess.Popen(
+                job.command,
+                cwd=str(self.cwd),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+                creationflags=creationflags,
+            )
+            assert process.stdout is not None
+            for line in process.stdout:
+                job.append(line)
+            returncode = process.wait()
+        except Exception as exc:
+            job.append(f"\nErro ao iniciar comando: {exc}\n")
+            returncode = 1
+        with job.lock:
+            job.returncode = returncode
+            job.status = "done" if returncode == 0 else "failed"
+            job.ended_at = _now()
+
+
+class RepoTemplateServer(ThreadingHTTPServer):
+    def __init__(self, server_address: tuple[str, int], app: WebApp) -> None:
+        super().__init__(server_address, Handler)
+        self.app = app
+
+
+class Handler(BaseHTTPRequestHandler):
+    server: RepoTemplateServer
+
+    def log_message(self, format: str, *args: Any) -> None:
+        return
+
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/":
+            html = HTML.replace("__INITIAL_CONFIG__", _json_script_string(str(self.server.app.initial_config)))
+            self._send_html(html)
+            return
+        if parsed.path == "/api/config":
+            query = parse_qs(parsed.query)
+            payload = self.server.app.load_config((query.get("path") or [""])[0])
+            self._send_json(payload)
+            return
+        if parsed.path == "/api/jobs":
+            self._send_json({"jobs": self.server.app.list_jobs()})
+            return
+        if parsed.path.startswith("/api/job/"):
+            job_id = parsed.path.rsplit("/", 1)[-1]
+            job = self.server.app.get_job(job_id)
+            if not job:
+                self._send_json({"error": "Execucao nao encontrada."}, status=404)
+                return
+            self._send_json({"job": job})
+            return
+        self._send_json({"error": "Rota nao encontrada."}, status=404)
+
+    def do_POST(self) -> None:
+        try:
+            payload = self._read_json()
+            parsed = urlparse(self.path)
+            if parsed.path == "/api/config":
+                result = self.server.app.save_config(str(payload.get("path") or ""), payload.get("data"))
+                self._send_json(result)
+                return
+            if parsed.path == "/api/job":
+                job = self.server.app.start_job(
+                    action=str(payload.get("action") or ""),
+                    config_path=str(payload.get("path") or ""),
+                    data=payload.get("data"),
+                    options=payload.get("options") if isinstance(payload.get("options"), dict) else {},
+                )
+                self._send_json({"job": job.snapshot()}, status=202)
+                return
+            self._send_json({"error": "Rota nao encontrada."}, status=404)
+        except Exception as exc:
+            self._send_json({"error": str(exc)}, status=400)
+
+    def _read_json(self) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length", "0"))
+        raw = self.rfile.read(length).decode("utf-8")
+        if not raw:
+            return {}
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("Payload JSON precisa ser um objeto.")
+        return data
+
+    def _send_html(self, body: str) -> None:
+        encoded = body.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def _send_json(self, body: dict[str, Any], status: int = 200) -> None:
+        encoded = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
+
+def serve(
+    config_path: str = "control.json",
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    open_browser: bool = True,
+) -> int:
+    app = WebApp(Path(config_path), Path.cwd())
+    server = _create_server(host, port, app)
+    actual_host, actual_port = server.server_address[:2]
+    url = f"http://{actual_host}:{actual_port}/"
+    print(f"Interface web: {url}")
+    print("Pressione Ctrl+C para encerrar.")
+    if open_browser:
+        webbrowser.open(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
+def _create_server(host: str, port: int, app: WebApp) -> RepoTemplateServer:
+    candidates = [0] if port == 0 else [port, *range(port + 1, port + 20)]
+    last_error: OSError | None = None
+    for candidate in candidates:
+        try:
+            return RepoTemplateServer((host, candidate), app)
+        except OSError as exc:
+            last_error = exc
+    raise RuntimeError(f"Nao foi possivel abrir porta local: {last_error}")
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _json_script_string(value: str) -> str:
+    return json.dumps(value)[1:-1]

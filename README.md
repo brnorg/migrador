@@ -24,6 +24,22 @@ repo-template init --path control.json
 
 Edite o `control.json` com a pasta de templates, campos Jinja, repositorios, branch, mensagem de commit, dados do PR e variables/secrets.
 
+## Interface web
+
+Para editar o JSON de controle com uma interface grafica local:
+
+```powershell
+repo-template ui --config control.json
+```
+
+A pagina abre em `http://127.0.0.1:8765/` por padrao. Ela permite carregar, criar e salvar o JSON, editar repositorios/campos/settings por formulario, ajustar o JSON bruto, validar, fazer check local/remoto, planejar com dry-run e executar a CLI acompanhando o status e logs de cada comando.
+
+Use estas opcoes se precisar mudar host/porta ou evitar abertura automatica do navegador:
+
+```powershell
+repo-template ui --config control.json --port 8899 --no-open
+```
+
 ## Executar
 
 ```powershell

@@ -131,6 +131,13 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--force", action="store_true", help="Sobrescreve o arquivo se ele ja existir.")
     init_parser.set_defaults(handler=cmd_init)
 
+    ui_parser = subparsers.add_parser("ui", help="Abre a interface web local.")
+    ui_parser.add_argument("-c", "--config", default="control.json", help="Arquivo JSON de controle.")
+    ui_parser.add_argument("--host", default="127.0.0.1", help="Host local da interface.")
+    ui_parser.add_argument("--port", type=int, default=8765, help="Porta local da interface.")
+    ui_parser.add_argument("--no-open", action="store_true", help="Nao abrir o navegador automaticamente.")
+    ui_parser.set_defaults(handler=cmd_ui)
+
     return parser
 
 
@@ -141,6 +148,17 @@ def cmd_init(args: argparse.Namespace) -> int:
     target.write_text(json.dumps(example_config(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     console.print(f"Arquivo criado: [bold]{target}[/bold]")
     return 0
+
+
+def cmd_ui(args: argparse.Namespace) -> int:
+    from .web import serve
+
+    return serve(
+        config_path=args.config,
+        host=args.host,
+        port=args.port,
+        open_browser=not args.no_open,
+    )
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
