@@ -25,18 +25,24 @@ HTML = r"""<!doctype html>
   <title>repo-template</title>
   <style>
     :root {
-      --bg: #f5f5f7;
-      --panel: rgba(255, 255, 255, 0.88);
-      --line: #d8d8de;
-      --line-soft: #ececf1;
+      --bg: #f4f4f7;
+      --panel: rgba(255, 255, 255, 0.84);
+      --panel-solid: #ffffff;
+      --control: rgba(255, 255, 255, 0.92);
+      --control-hover: #f3f3f6;
+      --line: #d7d7df;
+      --line-soft: rgba(0, 0, 0, 0.07);
       --text: #1d1d1f;
       --muted: #6e6e73;
+      --muted-soft: #8a8a91;
       --blue: #0071e3;
       --blue-dark: #005bbd;
+      --blue-soft: rgba(0, 113, 227, 0.12);
       --green: #148a45;
       --orange: #b06000;
       --red: #c62929;
-      --shadow: 0 18px 48px rgba(0, 0, 0, 0.08);
+      --shadow: 0 18px 44px rgba(23, 23, 26, 0.09), 0 1px 2px rgba(23, 23, 26, 0.06);
+      --shadow-soft: 0 8px 24px rgba(23, 23, 26, 0.07), 0 1px 2px rgba(23, 23, 26, 0.05);
     }
 
     * { box-sizing: border-box; }
@@ -46,9 +52,10 @@ HTML = r"""<!doctype html>
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 18% 0%, rgba(0, 113, 227, 0.10), transparent 28rem),
-        linear-gradient(180deg, #fbfbfd 0%, var(--bg) 42%, #ffffff 100%);
+        linear-gradient(180deg, #fbfbfd 0%, #f5f5f8 38%, #eceef3 100%);
       letter-spacing: 0;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
     }
 
     button, input, textarea, select {
@@ -63,23 +70,35 @@ HTML = r"""<!doctype html>
       min-height: 36px;
       padding: 0 14px;
       color: var(--text);
-      background: #eeeeef;
+      background: linear-gradient(180deg, #ffffff 0%, #f0f0f3 100%);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+      font-weight: 600;
       transition: background 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
     }
 
-    button:hover { background: #e4e4e8; }
+    button:hover {
+      background: linear-gradient(180deg, #ffffff 0%, #e8e8ed 100%);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+    }
     button:active { transform: translateY(1px); }
     button.primary {
       color: white;
-      background: var(--blue);
+      background: linear-gradient(180deg, #1683f5 0%, var(--blue) 100%);
+      border-color: rgba(0, 87, 173, 0.35);
+      box-shadow: 0 8px 18px rgba(0, 113, 227, 0.22), 0 1px 1px rgba(0, 0, 0, 0.12);
     }
-    button.primary:hover { background: var(--blue-dark); }
+    button.primary:hover {
+      background: linear-gradient(180deg, #0878ea 0%, var(--blue-dark) 100%);
+      box-shadow: 0 10px 24px rgba(0, 113, 227, 0.26), 0 1px 1px rgba(0, 0, 0, 0.12);
+    }
     button.danger {
       color: white;
-      background: var(--red);
+      background: linear-gradient(180deg, #db3b3b 0%, var(--red) 100%);
+      border-color: rgba(160, 20, 20, 0.32);
     }
     button.ghost {
-      background: transparent;
+      background: rgba(255, 255, 255, 0.36);
       border: 1px solid var(--line);
     }
     button.icon {
@@ -88,21 +107,27 @@ HTML = r"""<!doctype html>
       font-weight: 700;
     }
 
+    button:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 4px var(--blue-soft), 0 3px 10px rgba(0, 0, 0, 0.08);
+    }
+
     input, textarea, select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9);
+      background: var(--control);
       color: var(--text);
       outline: none;
-      padding: 10px 12px;
-      min-height: 38px;
+      padding: 10px 11px;
+      min-height: 40px;
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.035), 0 1px 0 rgba(255, 255, 255, 0.72);
       transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
     }
 
     input[readonly] {
       color: var(--muted);
-      background: #f4f4f6;
+      background: #f2f2f5;
     }
 
     textarea {
@@ -115,7 +140,8 @@ HTML = r"""<!doctype html>
 
     input:focus, textarea:focus, select:focus {
       border-color: var(--blue);
-      box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.14);
+      background: #ffffff;
+      box-shadow: 0 0 0 4px var(--blue-soft), inset 0 1px 1px rgba(0, 0, 0, 0.025);
     }
 
     label {
@@ -124,11 +150,12 @@ HTML = r"""<!doctype html>
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
+      line-height: 1.3;
     }
 
     .app {
       display: grid;
-      grid-template-columns: 304px minmax(0, 1fr);
+      grid-template-columns: 316px minmax(0, 1fr);
       min-height: 100vh;
     }
 
@@ -137,15 +164,16 @@ HTML = r"""<!doctype html>
       top: 0;
       height: 100vh;
       overflow: auto;
-      padding: 22px;
-      background: rgba(255, 255, 255, 0.72);
+      padding: 24px;
+      background: rgba(252, 252, 255, 0.72);
       border-right: 1px solid var(--line-soft);
       backdrop-filter: blur(22px);
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.74);
     }
 
     main {
       min-width: 0;
-      padding: 28px clamp(18px, 4vw, 48px) 42px;
+      padding: 32px 48px 48px;
     }
 
     .brand {
@@ -155,6 +183,7 @@ HTML = r"""<!doctype html>
       margin-bottom: 26px;
       font-weight: 700;
       font-size: 18px;
+      color: #171719;
     }
 
     .brand-mark {
@@ -164,8 +193,9 @@ HTML = r"""<!doctype html>
       height: 34px;
       border-radius: 8px;
       color: white;
-      background: linear-gradient(135deg, #111827, #0071e3);
-      box-shadow: var(--shadow);
+      background: linear-gradient(145deg, #111827 0%, #215fbd 52%, #00a3a3 100%);
+      box-shadow: 0 10px 24px rgba(0, 83, 181, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      font-size: 13px;
     }
 
     .side-block {
@@ -176,8 +206,9 @@ HTML = r"""<!doctype html>
 
     .side-title {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
     }
 
@@ -203,41 +234,47 @@ HTML = r"""<!doctype html>
     }
 
     .topbar {
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      align-items: flex-start;
-      margin-bottom: 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 24px;
     }
 
     h1 {
       margin: 0;
-      font-size: clamp(28px, 4vw, 44px);
-      line-height: 1.04;
+      font-size: 40px;
+      line-height: 1.06;
       font-weight: 760;
       max-width: 780px;
     }
 
     .file-state {
       flex: 0 0 auto;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      padding: 8px 10px;
-      background: rgba(255, 255, 255, 0.74);
+      padding: 9px 11px;
+      background: rgba(255, 255, 255, 0.68);
       color: var(--muted);
       font-size: 12px;
       max-width: 420px;
       overflow-wrap: anywhere;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
+    .topbar .file-state {
+      justify-self: end;
     }
 
     .tabs {
       display: inline-flex;
       gap: 4px;
       padding: 4px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: rgba(242, 242, 247, 0.8);
-      margin-bottom: 22px;
+      background: rgba(232, 232, 237, 0.72);
+      margin-bottom: 24px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 0 rgba(255, 255, 255, 0.78);
     }
 
     .tab {
@@ -249,7 +286,7 @@ HTML = r"""<!doctype html>
     .tab.active {
       background: white;
       color: var(--text);
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10), 0 1px 1px rgba(0, 0, 0, 0.05);
     }
 
     .panel {
@@ -262,17 +299,24 @@ HTML = r"""<!doctype html>
     }
 
     .surface {
+      position: relative;
+      z-index: 1;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: var(--panel);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, var(--panel) 100%);
       box-shadow: var(--shadow);
-      overflow: hidden;
+      overflow: visible;
       transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+      backdrop-filter: blur(18px);
     }
 
     .surface:hover {
-      border-color: #e2e2e8;
-      box-shadow: 0 20px 54px rgba(0, 0, 0, 0.09);
+      border-color: rgba(0, 0, 0, 0.10);
+      box-shadow: 0 22px 58px rgba(23, 23, 26, 0.10), 0 1px 2px rgba(23, 23, 26, 0.06);
+    }
+
+    .surface:focus-within {
+      z-index: 20;
     }
 
     .section-head {
@@ -280,14 +324,16 @@ HTML = r"""<!doctype html>
       align-items: center;
       justify-content: space-between;
       gap: 14px;
-      padding: 16px 18px;
+      padding: 15px 18px;
       border-bottom: 1px solid var(--line-soft);
+      background: rgba(250, 250, 252, 0.72);
     }
 
     .section-head h2 {
       margin: 0;
       font-size: 17px;
       line-height: 1.2;
+      font-weight: 720;
     }
 
     .section-actions {
@@ -300,12 +346,12 @@ HTML = r"""<!doctype html>
     .section-body {
       padding: 18px;
       display: grid;
-      gap: 16px;
+      gap: 18px;
     }
 
     .grid {
       display: grid;
-      gap: 14px;
+      gap: 15px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -318,7 +364,8 @@ HTML = r"""<!doctype html>
       gap: 4px;
       padding: 4px;
       border-radius: 8px;
-      background: #ededf2;
+      background: rgba(232, 232, 237, 0.86);
+      border: 1px solid rgba(0, 0, 0, 0.05);
     }
 
     .segmented button {
@@ -329,25 +376,27 @@ HTML = r"""<!doctype html>
     .segmented button.active {
       background: #ffffff;
       color: var(--text);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 11px rgba(0, 0, 0, 0.10), 0 1px 1px rgba(0, 0, 0, 0.05);
     }
 
     .list {
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      overflow: hidden;
-      background: #ffffff;
+      overflow: visible;
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
     }
 
     .list-row {
+      position: relative;
       display: grid;
       gap: 12px;
-      padding: 14px;
+      padding: 15px;
       border-bottom: 1px solid var(--line-soft);
       transition: background 160ms ease;
     }
 
-    .list-row:hover { background: #fbfbfd; }
+    .list-row:hover { background: rgba(248, 248, 252, 0.86); }
 
     .list-row:last-child { border-bottom: 0; }
 
@@ -370,10 +419,11 @@ HTML = r"""<!doctype html>
       padding: 10px 12px;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #f8f8fb;
+      background: linear-gradient(180deg, #fbfbfd 0%, #f2f2f6 100%);
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74);
     }
 
     .repo-value-list {
@@ -400,7 +450,7 @@ HTML = r"""<!doctype html>
 
     .suggestions {
       position: absolute;
-      z-index: 12;
+      z-index: 80;
       top: calc(100% + 6px);
       left: 0;
       right: 0;
@@ -409,7 +459,7 @@ HTML = r"""<!doctype html>
       border: 1px solid var(--line);
       border-radius: 8px;
       background: white;
-      box-shadow: var(--shadow);
+      box-shadow: 0 18px 42px rgba(23, 23, 26, 0.16), 0 2px 8px rgba(23, 23, 26, 0.08);
       padding: 4px;
     }
 
@@ -427,6 +477,7 @@ HTML = r"""<!doctype html>
       border-radius: 6px;
       background: white;
       text-align: left;
+      box-shadow: none;
     }
 
     .suggestion:hover { background: #f2f7ff; }
@@ -455,13 +506,15 @@ HTML = r"""<!doctype html>
       height: 16px;
       min-height: 16px;
       padding: 0;
+      accent-color: var(--blue);
     }
 
     .empty {
-      padding: 18px;
+      padding: 22px;
       color: var(--muted);
       font-size: 14px;
       text-align: center;
+      background: rgba(248, 248, 251, 0.78);
     }
 
     .json-editor {
@@ -477,7 +530,7 @@ HTML = r"""<!doctype html>
     .jobs-list {
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: white;
+      background: rgba(255, 255, 255, 0.78);
       overflow: hidden;
     }
 
@@ -488,13 +541,14 @@ HTML = r"""<!doctype html>
       gap: 5px 10px;
       border-radius: 0;
       border-bottom: 1px solid var(--line-soft);
-      background: white;
+      background: rgba(255, 255, 255, 0.72);
       padding: 12px;
       text-align: left;
+      box-shadow: none;
     }
 
     .job-item:last-child { border-bottom: 0; }
-    .job-item.active { background: #f2f7ff; }
+    .job-item.active { background: #eef6ff; }
     .job-name { font-weight: 700; }
     .job-meta { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 
@@ -523,13 +577,14 @@ HTML = r"""<!doctype html>
       overflow: auto;
       border: 1px solid var(--line-soft);
       border-radius: 8px;
-      background: #0f172a;
-      color: #dbeafe;
+      background: #111827;
+      color: #dbe7ff;
       padding: 16px;
       font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
       font-size: 12px;
       line-height: 1.5;
       white-space: pre-wrap;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     .toast {
@@ -541,7 +596,7 @@ HTML = r"""<!doctype html>
       border-radius: 8px;
       color: white;
       background: rgba(29, 29, 31, 0.94);
-      box-shadow: var(--shadow);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.12);
       opacity: 0;
       transform: translateY(8px);
       transition: 160ms ease;
@@ -562,9 +617,18 @@ HTML = r"""<!doctype html>
         border-right: 0;
         border-bottom: 1px solid var(--line-soft);
       }
-      .topbar { flex-direction: column; }
+      .topbar { gap: 12px; }
       .file-state { max-width: 100%; }
       .grid, .grid.three, .job-layout { grid-template-columns: 1fr; }
+      main { padding: 24px 18px 36px; }
+      h1 { font-size: 34px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+      }
     }
   </style>
 </head>
@@ -708,6 +772,7 @@ HTML = r"""<!doctype html>
       repoSuggestions: {},
       repoSearchTimers: {},
       repoSearchTokens: {},
+      repoSelectedValues: {},
       jobs: []
     };
 
@@ -1102,6 +1167,7 @@ HTML = r"""<!doctype html>
           target.type = "text";
         }
         if (target.matches('input[data-repo-field="repo"]')) {
+          hideAllRepoSuggestions(Number(target.dataset.index));
           queueRepoSearch(Number(target.dataset.index), target.value);
         }
       });
@@ -1124,6 +1190,10 @@ HTML = r"""<!doctype html>
       document.body.addEventListener("click", (event) => {
         const target = event.target;
         const repoChoice = target.closest("[data-repo-choice]");
+        const repoWrap = target.closest(".suggest-wrap");
+        if (!repoWrap && !repoChoice && !target.matches("[data-repo-search-button]")) {
+          hideAllRepoSuggestions();
+        }
         if (target.matches("[data-pick-path]")) {
           chooseBoundPath(
             target.dataset.pickPath,
@@ -1196,6 +1266,21 @@ HTML = r"""<!doctype html>
         if (repoIndex > index) nextExpanded.add(repoIndex - 1);
       }
       state.expandedRepos = nextExpanded;
+      reindexRepoState(state.repoSuggestions, index);
+      reindexRepoState(state.repoSearchTimers, index);
+      reindexRepoState(state.repoSearchTokens, index);
+      reindexRepoState(state.repoSelectedValues, index);
+    }
+
+    function reindexRepoState(values, removedIndex) {
+      const next = {};
+      for (const [key, value] of Object.entries(values)) {
+        const index = Number(key);
+        if (index < removedIndex) next[index] = value;
+        if (index > removedIndex) next[index - 1] = value;
+      }
+      Object.keys(values).forEach((key) => delete values[key]);
+      Object.assign(values, next);
     }
 
     function forEachRepoArray(callback) {
@@ -1217,6 +1302,9 @@ HTML = r"""<!doctype html>
 
     function handleRepoInput(target) {
       const index = Number(target.dataset.index);
+      if (state.repoSelectedValues[index] !== target.value) {
+        delete state.repoSelectedValues[index];
+      }
       updateRepo(index, "repo", target.value);
       queueRepoSearch(index, target.value);
       syncRaw();
@@ -1225,6 +1313,7 @@ HTML = r"""<!doctype html>
     function searchRepoNow(index) {
       const input = document.querySelector(`input[data-repo-field="repo"][data-index="${index}"]`);
       if (!input) return;
+      delete state.repoSelectedValues[index];
       updateRepo(index, "repo", input.value);
       syncRaw();
       clearTimeout(state.repoSearchTimers[index]);
@@ -1242,9 +1331,12 @@ HTML = r"""<!doctype html>
     function queueRepoSearch(index, value) {
       const query = String(value || "").trim();
       clearTimeout(state.repoSearchTimers[index]);
+      if (state.repoSelectedValues[index] === query) {
+        hideRepoSuggestions(index);
+        return;
+      }
       if (query.length < 2 || query.startsWith("http://") || query.startsWith("https://") || query.startsWith("git@")) {
-        state.repoSuggestions[index] = [];
-        renderRepoSuggestions(index);
+        hideRepoSuggestions(index);
         return;
       }
       const token = `${Date.now()}-${Math.random()}`;
@@ -1284,9 +1376,28 @@ HTML = r"""<!doctype html>
       }).join("");
     }
 
+    function hideRepoSuggestions(index) {
+      clearTimeout(state.repoSearchTimers[index]);
+      state.repoSearchTokens[index] = "";
+      state.repoSuggestions[index] = [];
+      renderRepoSuggestions(index);
+    }
+
+    function hideAllRepoSuggestions(exceptIndex = null) {
+      const indexes = new Set([
+        ...Object.keys(state.repoSuggestions).map(Number),
+        ...$$("[data-repo-suggestions]").map((node) => Number(node.dataset.repoSuggestions)),
+      ]);
+      for (const index of indexes) {
+        if (index === exceptIndex) continue;
+        hideRepoSuggestions(index);
+      }
+    }
+
     function selectRepoSuggestion(index, fullName) {
       updateRepo(index, "repo", fullName);
-      state.repoSuggestions[index] = [];
+      state.repoSelectedValues[index] = fullName;
+      hideRepoSuggestions(index);
       renderRepositories();
       syncRaw();
     }
