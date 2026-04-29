@@ -64,9 +64,11 @@ HTML = r"""<!doctype html>
       padding: 0 14px;
       color: var(--text);
       background: #eeeeef;
+      transition: background 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
     }
 
     button:hover { background: #e4e4e8; }
+    button:active { transform: translateY(1px); }
     button.primary {
       color: white;
       background: var(--blue);
@@ -95,6 +97,12 @@ HTML = r"""<!doctype html>
       outline: none;
       padding: 10px 12px;
       min-height: 38px;
+      transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+
+    input[readonly] {
+      color: var(--muted);
+      background: #f4f4f6;
     }
 
     textarea {
@@ -179,6 +187,21 @@ HTML = r"""<!doctype html>
       gap: 8px;
     }
 
+    .path-picker {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 36px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .path-picker input {
+      min-width: 0;
+    }
+
+    .repo-picker {
+      grid-template-columns: minmax(0, 1fr) 72px;
+    }
+
     .topbar {
       display: flex;
       justify-content: space-between;
@@ -244,6 +267,12 @@ HTML = r"""<!doctype html>
       background: var(--panel);
       box-shadow: var(--shadow);
       overflow: hidden;
+      transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    .surface:hover {
+      border-color: #e2e2e8;
+      box-shadow: 0 20px 54px rgba(0, 0, 0, 0.09);
     }
 
     .section-head {
@@ -259,6 +288,13 @@ HTML = r"""<!doctype html>
       margin: 0;
       font-size: 17px;
       line-height: 1.2;
+    }
+
+    .section-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .section-body {
@@ -308,7 +344,10 @@ HTML = r"""<!doctype html>
       gap: 12px;
       padding: 14px;
       border-bottom: 1px solid var(--line-soft);
+      transition: background 160ms ease;
     }
+
+    .list-row:hover { background: #fbfbfd; }
 
     .list-row:last-child { border-bottom: 0; }
 
@@ -341,6 +380,58 @@ HTML = r"""<!doctype html>
       display: grid;
       gap: 10px;
     }
+
+    .field-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .suggest-wrap {
+      position: relative;
+      display: grid;
+      gap: 6px;
+    }
+
+    .repo-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .suggestions {
+      position: absolute;
+      z-index: 12;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      max-height: 240px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      box-shadow: var(--shadow);
+      padding: 4px;
+    }
+
+    .suggestions:empty,
+    .suggestions.hidden {
+      display: none;
+    }
+
+    .suggestion {
+      width: 100%;
+      min-height: 34px;
+      display: grid;
+      gap: 2px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: white;
+      text-align: left;
+    }
+
+    .suggestion:hover { background: #f2f7ff; }
+    .suggestion strong { font-size: 13px; }
+    .suggestion span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 
     .checks {
       display: flex;
@@ -483,7 +574,10 @@ HTML = r"""<!doctype html>
       <div class="brand"><span class="brand-mark">rt</span><span>repo-template</span></div>
       <div class="side-block">
         <div class="side-title">Arquivo</div>
-        <input id="configPath" aria-label="Arquivo de controle">
+        <div class="path-picker">
+          <input id="configPath" aria-label="Arquivo de controle">
+          <button id="pickConfigBtn" class="icon" type="button" title="Selecionar arquivo de controle">...</button>
+        </div>
         <div class="button-grid">
           <button id="loadBtn">Carregar</button>
           <button id="saveBtn" class="primary">Salvar</button>
@@ -520,22 +614,13 @@ HTML = r"""<!doctype html>
 
       <section id="editorPanel" class="panel active">
         <div class="surface">
-          <div class="section-head"><h2>Fluxo</h2></div>
-          <div class="section-body">
-            <div class="grid three">
-              <label>Templates root<input data-bind="templates_root"></label>
-              <label>Workspace<input data-bind="workspace"></label>
-              <label>Template padrao<input data-bind="template"></label>
-              <label class="wide">Branch<input data-bind="branch"></label>
-              <label class="wide">Commit<textarea data-bind="commit_message"></textarea></label>
-              <label>Modo de envio
-                <div class="segmented" id="applyMode">
-                  <button data-mode="api" type="button">API</button>
-                  <button data-mode="git" type="button">Git</button>
-                </div>
-              </label>
+          <div class="section-head">
+            <h2>Fluxo</h2>
+            <div class="section-actions">
+              <button type="button" id="flowDetailsBtn">Detalhes</button>
             </div>
           </div>
+          <div id="flowBody" class="section-body"></div>
         </div>
 
         <div class="surface">
@@ -618,7 +703,11 @@ HTML = r"""<!doctype html>
       exists: false,
       activeTab: "editor",
       selectedJob: null,
+      flowDetails: false,
       expandedRepos: new Set(),
+      repoSuggestions: {},
+      repoSearchTimers: {},
+      repoSearchTokens: {},
       jobs: []
     };
 
@@ -649,12 +738,57 @@ HTML = r"""<!doctype html>
       return body;
     }
 
+    async function pickPath(kind, current, title) {
+      return request("/api/pick-path", {
+        method: "POST",
+        body: JSON.stringify({ kind, current, title })
+      });
+    }
+
     function toast(message) {
       const el = $("#toast");
       el.textContent = message;
       el.classList.add("show");
       clearTimeout(toast.timer);
       toast.timer = setTimeout(() => el.classList.remove("show"), 2600);
+    }
+
+    async function chooseConfigPath() {
+      const body = await pickPath("open-file", getPath(), "Selecionar arquivo de controle");
+      if (!body.path) return;
+      $("#configPath").value = body.path;
+      await loadConfig();
+    }
+
+    async function chooseBoundPath(binding, kind, title) {
+      const body = await pickPath(kind, getByPath(binding), title);
+      if (!body.path) return;
+      setByPath(binding, body.path);
+      render();
+      toast(kind === "folder" ? "Pasta selecionada" : "Arquivo selecionado");
+    }
+
+    async function chooseTemplateFolder() {
+      const body = await pickPath("folder", templateFolderPath(), "Selecionar pasta do template padrao");
+      if (!body.path) return;
+      const parts = splitPath(body.path);
+      state.data.template = parts.name;
+      state.data.templates_root = parts.parent || state.data.templates_root;
+      render();
+      toast("Template padrao selecionado");
+    }
+
+    function templateFolderPath() {
+      if (!state.data.templates_root || !state.data.template) return state.data.templates_root || "";
+      const separator = state.data.templates_root.includes("\\") ? "\\" : "/";
+      return `${state.data.templates_root}${state.data.templates_root.endsWith(separator) ? "" : separator}${state.data.template}`;
+    }
+
+    function splitPath(path) {
+      const cleaned = String(path || "").replace(/[\\\/]+$/, "");
+      const parts = cleaned.split(/[\\\/]+/);
+      const name = parts.pop() || "";
+      return { name, parent: parts.join(cleaned.includes("\\") ? "\\" : "/") };
     }
 
     function normalize(data) {
@@ -778,6 +912,7 @@ HTML = r"""<!doctype html>
 
     function render() {
       state.data = normalize(state.data);
+      renderFlow();
       $$("[data-bind]").forEach((input) => { input.value = getByPath(input.dataset.bind); });
       $$("#applyMode button").forEach((button) => {
         button.classList.toggle("active", button.dataset.mode === state.data.apply_mode);
@@ -788,6 +923,43 @@ HTML = r"""<!doctype html>
       $("#excludeText").value = state.data.exclude.join("\n");
       syncRaw();
       updateStateLabels();
+    }
+
+    function renderFlow() {
+      const isGit = state.data.apply_mode === "git";
+      const details = state.flowDetails;
+      $("#flowDetailsBtn").textContent = details ? "Ocultar" : "Detalhes";
+      $("#flowBody").innerHTML = `
+        <div class="grid three">
+          <label>Template padrao
+            <div class="path-picker">
+              <input data-bind="template">
+              <button class="icon" type="button" data-pick-template-folder title="Selecionar pasta do template padrao">...</button>
+            </div>
+          </label>
+          <label>Modo de envio
+            <div class="segmented" id="applyMode">
+              <button data-mode="api" type="button">API</button>
+              <button data-mode="git" type="button">Git</button>
+            </div>
+          </label>
+          <label class="wide">Branch<input data-bind="branch"></label>
+          <label class="wide">Commit<textarea data-bind="commit_message"></textarea></label>
+          ${details ? `
+            <label>Templates root
+              <input value="${escapeHtml(state.data.templates_root)}" readonly>
+              <span class="field-note">Definido automaticamente pela pasta anterior ao template selecionado.</span>
+            </label>
+            ${isGit ? `
+              <label>Workspace
+                <div class="path-picker">
+                  <input data-bind="workspace">
+                  <button class="icon" type="button" data-pick-path="workspace" data-pick-kind="folder" title="Selecionar pasta de workspace">...</button>
+                </div>
+              </label>
+            ` : ""}
+          ` : ""}
+        </div>`;
     }
 
     function renderRepositories() {
@@ -809,7 +981,16 @@ HTML = r"""<!doctype html>
               </div>
             </div>
             <div class="grid">
-              <label class="${expanded ? "" : "wide"}">Owner/name ou URL<input data-repo-field="repo" data-index="${index}" value="${escapeHtml(repoLabel(repo))}"></label>
+              <div class="repo-field ${expanded ? "" : "wide"}">
+                <label>Owner/name ou URL</label>
+                <div class="suggest-wrap">
+                  <div class="path-picker repo-picker">
+                    <input data-repo-field="repo" data-index="${index}" autocomplete="off" value="${escapeHtml(repoLabel(repo))}" oninput="handleRepoInput(this)" onkeyup="handleRepoInput(this)" onchange="handleRepoInput(this)" onfocus="handleRepoInput(this)">
+                    <button type="button" data-repo-search-button="${index}" onclick="searchRepoNow(${index})" title="Buscar repositorio">Buscar</button>
+                  </div>
+                  <div class="suggestions hidden" data-repo-suggestions="${index}"></div>
+                </div>
+              </div>
               ${expanded ? `
                 <label>Template<input data-repo-field="template" data-index="${index}" value="${escapeHtml(objectRepo.template || "")}"></label>
                 <label>Branch<input data-repo-field="branch" data-index="${index}" value="${escapeHtml(objectRepo.branch || objectRepo.branch_name || "")}"></label>
@@ -892,6 +1073,9 @@ HTML = r"""<!doctype html>
         }
         if (target.matches("[data-repo-field]")) {
           updateRepo(Number(target.dataset.index), target.dataset.repoField, target.value);
+          if (target.dataset.repoField === "repo") {
+            queueRepoSearch(Number(target.dataset.index), target.value);
+          }
           syncRaw();
         }
         if (target.matches("[data-value-field]")) {
@@ -917,6 +1101,9 @@ HTML = r"""<!doctype html>
         if (target.matches("input[data-secret-mask]")) {
           target.type = "text";
         }
+        if (target.matches('input[data-repo-field="repo"]')) {
+          queueRepoSearch(Number(target.dataset.index), target.value);
+        }
       });
 
       document.body.addEventListener("focusout", (event) => {
@@ -926,8 +1113,42 @@ HTML = r"""<!doctype html>
         }
       });
 
+      document.body.addEventListener("keyup", (event) => {
+        const target = event.target;
+        if (!target.matches('input[data-repo-field="repo"]')) return;
+        updateRepo(Number(target.dataset.index), "repo", target.value);
+        queueRepoSearch(Number(target.dataset.index), target.value);
+        syncRaw();
+      });
+
       document.body.addEventListener("click", (event) => {
         const target = event.target;
+        const repoChoice = target.closest("[data-repo-choice]");
+        if (target.matches("[data-pick-path]")) {
+          chooseBoundPath(
+            target.dataset.pickPath,
+            target.dataset.pickKind || "folder",
+            target.title || "Selecionar caminho"
+          ).catch((error) => toast(error.message));
+          return;
+        }
+        if (target.matches("[data-pick-template-folder]")) {
+          chooseTemplateFolder().catch((error) => toast(error.message));
+          return;
+        }
+        if (repoChoice) {
+          selectRepoSuggestion(Number(repoChoice.dataset.index), repoChoice.dataset.repoChoice);
+          return;
+        }
+        if (target.matches("[data-repo-search-button]")) {
+          searchRepoNow(Number(target.dataset.repoSearchButton));
+          return;
+        }
+        if (target.id === "flowDetailsBtn") {
+          state.flowDetails = !state.flowDetails;
+          render();
+          return;
+        }
         if (target.matches("[data-mode]")) {
           state.data.apply_mode = target.dataset.mode;
           render();
@@ -992,6 +1213,82 @@ HTML = r"""<!doctype html>
       } else {
         state.expandedRepos.add(index);
       }
+    }
+
+    function handleRepoInput(target) {
+      const index = Number(target.dataset.index);
+      updateRepo(index, "repo", target.value);
+      queueRepoSearch(index, target.value);
+      syncRaw();
+    }
+
+    function searchRepoNow(index) {
+      const input = document.querySelector(`input[data-repo-field="repo"][data-index="${index}"]`);
+      if (!input) return;
+      updateRepo(index, "repo", input.value);
+      syncRaw();
+      clearTimeout(state.repoSearchTimers[index]);
+      const query = String(input.value || "").trim();
+      if (query.length < 2 || query.startsWith("http://") || query.startsWith("https://") || query.startsWith("git@")) {
+        state.repoSuggestions[index] = [];
+        renderRepoSuggestions(index);
+        return;
+      }
+      const token = `${Date.now()}-${Math.random()}`;
+      state.repoSearchTokens[index] = token;
+      runRepoSearch(index, query, token);
+    }
+
+    function queueRepoSearch(index, value) {
+      const query = String(value || "").trim();
+      clearTimeout(state.repoSearchTimers[index]);
+      if (query.length < 2 || query.startsWith("http://") || query.startsWith("https://") || query.startsWith("git@")) {
+        state.repoSuggestions[index] = [];
+        renderRepoSuggestions(index);
+        return;
+      }
+      const token = `${Date.now()}-${Math.random()}`;
+      state.repoSearchTokens[index] = token;
+      state.repoSearchTimers[index] = setTimeout(() => runRepoSearch(index, query, token), 280);
+    }
+
+    async function runRepoSearch(index, query, token) {
+      try {
+        const body = await request(`/api/repositories?q=${encodeURIComponent(query)}&limit=8`);
+        if (state.repoSearchTokens[index] !== token) return;
+        state.repoSuggestions[index] = body.error
+          ? [{ full_name: "", description: body.error, disabled: true }]
+          : (body.repositories || []);
+        renderRepoSuggestions(index);
+      } catch (error) {
+        if (state.repoSearchTokens[index] !== token) return;
+        state.repoSuggestions[index] = [{ full_name: "", description: error.message, disabled: true }];
+        renderRepoSuggestions(index);
+      }
+    }
+
+    function renderRepoSuggestions(index) {
+      const target = document.querySelector(`[data-repo-suggestions="${index}"]`);
+      if (!target) return;
+      const suggestions = state.repoSuggestions[index] || [];
+      target.classList.toggle("hidden", suggestions.length === 0);
+      target.innerHTML = suggestions.map((repo) => {
+        if (repo.disabled) {
+          return `<div class="suggestion"><span>${escapeHtml(repo.description || "")}</span></div>`;
+        }
+        return `
+          <button type="button" class="suggestion" data-index="${index}" data-repo-choice="${escapeHtml(repo.full_name)}">
+            <strong>${escapeHtml(repo.full_name)}</strong>
+            <span>${escapeHtml(repo.description || repo.visibility || "")}</span>
+          </button>`;
+      }).join("");
+    }
+
+    function selectRepoSuggestion(index, fullName) {
+      updateRepo(index, "repo", fullName);
+      state.repoSuggestions[index] = [];
+      renderRepositories();
+      syncRaw();
     }
 
     function updateRepo(index, field, value) {
@@ -1159,6 +1456,7 @@ HTML = r"""<!doctype html>
       $$(".tab").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.tab)));
       $("#loadBtn").addEventListener("click", () => loadConfig().catch((error) => toast(error.message)));
       $("#saveBtn").addEventListener("click", () => saveConfig().catch((error) => toast(error.message)));
+      $("#pickConfigBtn").addEventListener("click", () => chooseConfigPath().catch((error) => toast(error.message)));
       $("#validateBtn").addEventListener("click", () => startJob("validate").catch((error) => toast(error.message)));
       $("#checkLocalBtn").addEventListener("click", () => startJob("check-local").catch((error) => toast(error.message)));
       $("#checkRemoteBtn").addEventListener("click", () => startJob("check-remote").catch((error) => toast(error.message)));
@@ -1276,6 +1574,71 @@ class WebApp:
             json.dump(data, file, indent=2, ensure_ascii=False)
             file.write("\n")
         return {"path": str(path), "exists": True}
+
+    def pick_path(self, kind: str, current: str | None, title: str | None = None) -> dict[str, Any]:
+        if kind not in {"folder", "open-file", "save-file"}:
+            raise ValueError("Tipo de seletor invalido.")
+        current_path = self.resolve_path(current or str(self.cwd), self.cwd)
+        selected = _pick_path_dialog(kind, current_path, title or "")
+        if not selected:
+            return {"path": ""}
+        return {"path": str(Path(selected).expanduser().resolve())}
+
+    def search_repositories(self, query: str, limit: int = 8) -> dict[str, Any]:
+        query = " ".join(str(query or "").strip().split())
+        if len(query) < 2:
+            return {"repositories": []}
+
+        limit = max(1, min(int(limit or 8), 20))
+        command = [
+            "gh",
+            "search",
+            "repos",
+            query,
+            "--json",
+            "fullName,description,visibility",
+            "--limit",
+            str(limit),
+        ]
+        env = os.environ.copy()
+        env["NO_COLOR"] = "1"
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(self.cwd),
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=15,
+                env=env,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            )
+        except FileNotFoundError:
+            return {"repositories": [], "error": "GitHub CLI nao encontrado no PATH."}
+        except subprocess.TimeoutExpired:
+            return {"repositories": [], "error": "Busca no GitHub CLI excedeu o tempo limite."}
+
+        if completed.returncode != 0:
+            return {"repositories": [], "error": (completed.stderr or completed.stdout).strip()}
+
+        try:
+            raw_items = json.loads(completed.stdout or "[]")
+        except ValueError:
+            return {"repositories": [], "error": "GitHub CLI retornou uma resposta inesperada."}
+
+        repositories = []
+        for item in raw_items if isinstance(raw_items, list) else []:
+            full_name = str(item.get("fullName") or item.get("nameWithOwner") or "")
+            if not full_name:
+                continue
+            repositories.append(
+                {
+                    "full_name": full_name,
+                    "description": str(item.get("description") or ""),
+                    "visibility": str(item.get("visibility") or ""),
+                }
+            )
+        return {"repositories": repositories}
 
     def start_job(
         self,
@@ -1398,6 +1761,15 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/jobs":
             self._send_json({"jobs": self.server.app.list_jobs()})
             return
+        if parsed.path == "/api/repositories":
+            query = parse_qs(parsed.query)
+            try:
+                limit = int((query.get("limit") or ["8"])[0])
+            except ValueError:
+                limit = 8
+            payload = self.server.app.search_repositories((query.get("q") or [""])[0], limit=limit)
+            self._send_json(payload)
+            return
         if parsed.path.startswith("/api/job/"):
             job_id = parsed.path.rsplit("/", 1)[-1]
             job = self.server.app.get_job(job_id)
@@ -1414,6 +1786,14 @@ class Handler(BaseHTTPRequestHandler):
             parsed = urlparse(self.path)
             if parsed.path == "/api/config":
                 result = self.server.app.save_config(str(payload.get("path") or ""), payload.get("data"))
+                self._send_json(result)
+                return
+            if parsed.path == "/api/pick-path":
+                result = self.server.app.pick_path(
+                    kind=str(payload.get("kind") or "folder"),
+                    current=str(payload.get("current") or ""),
+                    title=str(payload.get("title") or ""),
+                )
                 self._send_json(result)
                 return
             if parsed.path == "/api/job":
@@ -1488,6 +1868,66 @@ def _create_server(host: str, port: int, app: WebApp) -> RepoTemplateServer:
         except OSError as exc:
             last_error = exc
     raise RuntimeError(f"Nao foi possivel abrir porta local: {last_error}")
+
+
+def _pick_path_dialog(kind: str, current_path: Path, title: str) -> str:
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+    except Exception as exc:
+        raise RuntimeError(f"Nao foi possivel carregar o seletor nativo: {exc}") from exc
+
+    initialdir = _dialog_initial_dir(current_path, kind)
+    initialfile = current_path.name if kind != "folder" else ""
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        try:
+            root.attributes("-topmost", True)
+            root.update()
+        except Exception:
+            pass
+
+        if kind == "folder":
+            return str(
+                filedialog.askdirectory(
+                    parent=root,
+                    title=title or "Selecionar pasta",
+                    initialdir=str(initialdir),
+                )
+            )
+        if kind == "open-file":
+            return str(
+                filedialog.askopenfilename(
+                    parent=root,
+                    title=title or "Selecionar arquivo",
+                    initialdir=str(initialdir),
+                    initialfile=initialfile,
+                    filetypes=(("Arquivos JSON", "*.json"), ("Todos os arquivos", "*.*")),
+                )
+            )
+        return str(
+            filedialog.asksaveasfilename(
+                parent=root,
+                title=title or "Salvar arquivo",
+                initialdir=str(initialdir),
+                initialfile=initialfile or "control.json",
+                defaultextension=".json",
+                filetypes=(("Arquivos JSON", "*.json"), ("Todos os arquivos", "*.*")),
+            )
+        )
+    finally:
+        root.destroy()
+
+
+def _dialog_initial_dir(current_path: Path, kind: str) -> Path:
+    candidate = current_path if kind == "folder" else current_path.parent
+    if candidate.is_file():
+        candidate = candidate.parent
+    for path in (candidate, *candidate.parents):
+        if path.is_dir():
+            return path
+    return Path.cwd()
 
 
 def _now() -> str:
