@@ -191,3 +191,23 @@ examples/templates/java/
 No exemplo acima, `repo-a/helpers/repo-info.txt` vira `helpers/repo-info.txt` somente no repositorio `repo-a`. Tambem sao aceitos os formatos explicitos `_repos/repo-a/...` e `_repos/orgs/sua-org/repo-a/...`.
 
 Para evitar ambiguidade entre organizacoes, voce pode usar `_repos/orgs/<org>/<repo>/...`, ou usar `owner__repo`, `owner--repo` ou `owner_repo` como nome da pasta. A ferramenta tambem aceita `_repo` no singular como alias de `_repos`.
+
+Tambem e possivel declarar pastas extras diretamente no JSON de cada repositorio. Isso permite usar uma pasta fora de `templates_root` e, opcionalmente, escolher em qual diretorio do repositorio ela sera criada:
+
+```json
+{
+  "repositories": [
+    {
+      "repo": "sua-org/repo-a",
+      "folders": [
+        {
+          "source": "../arquivos-bash",
+          "target": "scripts"
+        }
+      ]
+    }
+  ]
+}
+```
+
+No exemplo acima, os arquivos dentro de `../arquivos-bash` sao renderizados e criados em `scripts/` no repositorio. Se `target` ficar vazio, os arquivos entram na raiz do repositorio. `source` pode ser absoluto ou relativo ao arquivo de controle, e `target` sempre deve ser relativo ao repositorio.

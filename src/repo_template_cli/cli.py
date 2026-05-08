@@ -20,6 +20,7 @@ from .config import (
     ControlConfig,
     FieldSpec,
     NamedValue,
+    RepositoryFolderSpec,
     RepositorySpec,
     environment_for_repository,
     is_blank,
@@ -29,7 +30,7 @@ from .config import (
     value_for_repository,
 )
 from .github_api import GitHubClient
-from .render import render_string, render_template_files, render_template_tree
+from .render import TemplateSource, render_string, render_template_files, render_template_tree
 
 
 console = Console()
@@ -49,6 +50,7 @@ class RepoRun:
     pr_title: str
     pr_body: str
     context: dict[str, object]
+    extra_sources: list[TemplateSource]
 
 
 @dataclass
@@ -232,6 +234,19 @@ def validate_static_config(config: ControlConfig) -> list[str]:
         problems.append(f"templates_root nao existe: {config.templates_root}")
     elif not config.templates_root.is_dir():
         problems.append(f"templates_root nao e uma pasta: {config.templates_root}")
+    for repo_index, repo in enumerate(config.repositories, start=1):
+        for folder_index, folder in enumerate(repo.folders, start=1):
+            label = f"repositories[{repo_index}].folders[{folder_index}]"
+            if is_blank(folder.source):
+                problems.append(f"{label} precisa de source.")
+                continue
+            if "{{" in folder.source or "{%" in folder.source:
+                continue
+            source = resolve_control_path(folder.source, config.path.parent)
+            if not source.exists():
+                problems.append(f"{label}.source nao existe: {source}")
+            elif not source.is_dir():
+                problems.append(f"{label}.source nao e uma pasta: {source}")
     return problems
 
 
@@ -368,6 +383,7 @@ def resolve_runs(
         commit_message = render_string(config.commit_message, run_context)
         pr_title = render_string(config.pull_request.title, run_context)
         pr_body = render_string(config.pull_request.body, run_context)
+        extra_sources = resolve_repository_folders(repo.folders, config.path.parent, run_context)
 
         runs.append(
             RepoRun(
@@ -383,9 +399,37 @@ def resolve_runs(
                 pr_title=pr_title,
                 pr_body=pr_body,
                 context=run_context,
+                extra_sources=extra_sources,
             )
         )
     return runs
+
+
+def resolve_repository_folders(
+    folders: list[RepositoryFolderSpec],
+    base_dir: Path,
+    context: dict[str, object],
+) -> list[TemplateSource]:
+    sources: list[TemplateSource] = []
+    for index, folder in enumerate(folders, start=1):
+        if is_blank(folder.source):
+            raise RuntimeError(f"Pasta extra #{index} sem source.")
+        source_text = render_string(str(folder.source), context)
+        source_path = resolve_control_path(source_text, base_dir)
+        if not source_path.exists():
+            raise RuntimeError(f"Pasta extra nao existe: {source_path}")
+        if not source_path.is_dir():
+            raise RuntimeError(f"Pasta extra nao e uma pasta: {source_path}")
+        target = render_optional(folder.target, context)
+        sources.append(TemplateSource(root=source_path, target=target))
+    return sources
+
+
+def resolve_control_path(value: str, base_dir: Path) -> Path:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = base_dir / path
+    return path.resolve()
 
 
 def resolve_repository_identity(
@@ -475,7 +519,7 @@ def print_review(config: ControlConfig, runs: list[RepoRun]) -> None:
     repo_table = Table(title="Repositorios")
     repo_table.add_column("Repositorio")
     repo_table.add_column("Template")
-    repo_table.add_column("Overlay")
+    repo_table.add_column("Pastas repo")
     repo_table.add_column("Branch")
     repo_table.add_column("Base do PR")
     repo_table.add_column("PR")
@@ -483,7 +527,7 @@ def print_review(config: ControlConfig, runs: list[RepoRun]) -> None:
         repo_table.add_row(
             run.repo.full_name,
             run.template_name,
-            str(len(existing_repo_overlay_dirs(run))),
+            f"{len(existing_repo_overlay_dirs(run))} interna(s), {len(run.extra_sources)} externa(s)",
             run.branch,
             run.base or "branch padrao via API",
             run.pr_title,
@@ -579,11 +623,15 @@ def check_template_render(
 ) -> None:
     files = [path for path in run.template_dir.rglob("*") if path.is_file()]
     overlays = existing_repo_overlay_dirs(run)
+    extra_files = [path for source in run.extra_sources for path in source.root.rglob("*") if path.is_file()]
     add_check_item(
         items,
-        "OK" if files else "WARN",
+        "OK" if files or extra_files else "WARN",
         f"{run.repo.full_name}: template",
-        f"{run.template_dir} ({len(files)} arquivo(s), {len(overlays)} overlay(s) do repo)",
+        (
+            f"{run.template_dir} ({len(files)} arquivo(s), {len(overlays)} overlay(s) interno(s), "
+            f"{len(extra_files)} arquivo(s) externo(s))"
+        ),
     )
     try:
         api_files = render_template_files(
@@ -592,6 +640,7 @@ def check_template_render(
             config.exclude,
             repo_overlay_names=repo_overlay_names(run),
             all_repo_overlay_names=all_overlays,
+            extra_sources=run.extra_sources,
         )
         with tempfile.TemporaryDirectory(prefix="repo-template-check-") as tmp_dir:
             written = render_template_tree(
@@ -601,6 +650,7 @@ def check_template_render(
                 config.exclude,
                 repo_overlay_names=repo_overlay_names(run),
                 all_repo_overlay_names=all_overlays,
+                extra_sources=run.extra_sources,
             )
     except Exception as exc:
         add_check_item(items, "FAIL", f"{run.repo.full_name}: renderizacao", str(exc))
@@ -833,6 +883,7 @@ def execute_runs_api(config: ControlConfig, runs: list[RepoRun], client: GitHubC
                 config.exclude,
                 repo_overlay_names=repo_overlay_names(run),
                 all_repo_overlay_names=overlays,
+                extra_sources=run.extra_sources,
             )
             progress.advance(task)
 
@@ -924,6 +975,7 @@ def execute_runs_git(config: ControlConfig, runs: list[RepoRun], client: GitHubC
                 config.exclude,
                 repo_overlay_names=repo_overlay_names(run),
                 all_repo_overlay_names=overlays,
+                extra_sources=run.extra_sources,
             )
             progress.advance(task)
 

@@ -467,6 +467,29 @@ HTML = r"""<!doctype html>
       line-height: 1.35;
     }
 
+    .repo-extra-folders {
+      display: grid;
+      gap: 10px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .repo-folder-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .repo-folder-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(180px, 0.42fr) 36px;
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.66);
+    }
+
     .suggest-wrap {
       position: relative;
       display: grid;
@@ -649,7 +672,7 @@ HTML = r"""<!doctype html>
       }
       .topbar { gap: 12px; }
       .file-state { max-width: 100%; }
-      .grid, .grid.three, .job-layout, .repo-scoped-items { grid-template-columns: 1fr; }
+      .grid, .grid.three, .job-layout, .repo-scoped-items, .repo-folder-row { grid-template-columns: 1fr; }
       main { padding: 24px 18px 36px; }
       h1 { font-size: 34px; }
     }
@@ -731,7 +754,10 @@ HTML = r"""<!doctype html>
         <div class="surface">
           <div class="section-head">
             <h2>Repositorios</h2>
-            <button class="icon" id="addRepoBtn" title="Adicionar repositorio">+</button>
+            <div class="section-actions">
+              <label class="check"><input id="repoDetailsDefault" type="checkbox"> Exibir detalhes por padrao</label>
+              <button class="icon" id="addRepoBtn" title="Adicionar repositorio">+</button>
+            </div>
           </div>
           <div class="section-body"><div id="repositoriesList" class="list"></div></div>
         </div>
@@ -792,12 +818,29 @@ HTML = r"""<!doctype html>
 
   <script>
     const initialPath = "__INITIAL_CONFIG__";
+    const repoDetailsDefaultKey = "repo-template.repo-details-default";
+
+    function readStoredFlag(key) {
+      try {
+        return window.localStorage.getItem(key) === "true";
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function writeStoredFlag(key, value) {
+      try {
+        window.localStorage.setItem(key, value ? "true" : "false");
+      } catch (_) {}
+    }
+
     const state = {
       data: {},
       exists: false,
       activeTab: "editor",
       selectedJob: null,
       flowDetails: false,
+      repoDetailsDefault: readStoredFlag(repoDetailsDefaultKey),
       expandedRepos: new Set(),
       repoSuggestions: {},
       repoSearchTimers: {},
@@ -1045,6 +1088,47 @@ HTML = r"""<!doctype html>
         </div>`;
     }
 
+    function repoFolders(repo) {
+      return Array.isArray(repo?.folders) ? repo.folders : [];
+    }
+
+    function repoFolderSource(folder) {
+      if (typeof folder === "string") return folder;
+      if (!folder || typeof folder !== "object") return "";
+      return folder.source || folder.path || folder.folder || folder.from || "";
+    }
+
+    function repoFolderTarget(folder) {
+      if (!folder || typeof folder !== "object") return "";
+      return folder.target || folder.destination || folder.dest || folder.repository_path || folder.repo_path || folder.to || "";
+    }
+
+    function renderRepositoryFolders(repoIndex, repo) {
+      const folders = repoFolders(repo);
+      const rows = folders.map((folder, folderIndex) => `
+        <div class="repo-folder-row">
+          <label>Origem
+            <div class="path-picker">
+              <input data-repo-folder-field="source" data-index="${repoIndex}" data-folder-index="${folderIndex}" value="${escapeHtml(repoFolderSource(folder))}">
+              <button class="icon" type="button" data-pick-repo-folder-source data-index="${repoIndex}" data-folder-index="${folderIndex}" title="Selecionar pasta extra">...</button>
+            </div>
+          </label>
+          <label>Destino no repo
+            <input data-repo-folder-field="target" data-index="${repoIndex}" data-folder-index="${folderIndex}" value="${escapeHtml(repoFolderTarget(folder))}" placeholder="scripts">
+          </label>
+          <button class="icon" type="button" data-remove-repo-folder data-index="${repoIndex}" data-folder-index="${folderIndex}" title="Remover pasta">x</button>
+        </div>`).join("");
+
+      return `
+        <div class="repo-extra-folders">
+          <div class="value-toolbar">
+            <span>Pastas extras deste repositorio</span>
+            <button type="button" data-add-repo-folder="${repoIndex}">Adicionar pasta</button>
+          </div>
+          ${rows ? `<div class="repo-folder-list">${rows}</div>` : '<div class="empty">Nenhuma pasta extra.</div>'}
+        </div>`;
+    }
+
     function syncRaw() {
       $("#jsonEditor").value = JSON.stringify(state.data, null, 2);
     }
@@ -1063,6 +1147,7 @@ HTML = r"""<!doctype html>
       $$("#applyMode button").forEach((button) => {
         button.classList.toggle("active", button.dataset.mode === state.data.apply_mode);
       });
+      $("#repoDetailsDefault").checked = state.repoDetailsDefault;
       renderRepositories();
       renderValues();
       renderSettings();
@@ -1143,6 +1228,7 @@ HTML = r"""<!doctype html>
                 <label>Base<input data-repo-field="base" data-index="${index}" value="${escapeHtml(objectRepo.base || objectRepo.default_branch || "")}"></label>
               ` : ""}
             </div>
+            ${expanded ? renderRepositoryFolders(index, objectRepo) : ""}
             ${renderRepositoryScopedEditors(index)}
           </div>`;
       }).join("");
@@ -1225,6 +1311,15 @@ HTML = r"""<!doctype html>
           }
           syncRaw();
         }
+        if (target.matches("[data-repo-folder-field]")) {
+          updateRepoFolder(
+            Number(target.dataset.index),
+            Number(target.dataset.folderIndex),
+            target.dataset.repoFolderField,
+            target.value
+          );
+          syncRaw();
+        }
         if (target.matches("[data-value-field]")) {
           updateValue(Number(target.dataset.index), target.dataset.valueField, target);
           syncRaw();
@@ -1288,6 +1383,13 @@ HTML = r"""<!doctype html>
           chooseTemplateFolder().catch((error) => toast(error.message));
           return;
         }
+        if (target.matches("[data-pick-repo-folder-source]")) {
+          chooseRepoFolderSource(
+            Number(target.dataset.index),
+            Number(target.dataset.folderIndex)
+          ).catch((error) => toast(error.message));
+          return;
+        }
         if (repoChoice) {
           selectRepoSuggestion(Number(repoChoice.dataset.index), repoChoice.dataset.repoChoice);
           return;
@@ -1313,6 +1415,14 @@ HTML = r"""<!doctype html>
           toggleRepoDetails(Number(target.dataset.toggleRepoDetails));
           render();
         }
+        if (target.matches("[data-add-repo-folder]")) {
+          addRepoFolder(Number(target.dataset.addRepoFolder));
+          render();
+        }
+        if (target.matches("[data-remove-repo-folder]")) {
+          removeRepoFolder(Number(target.dataset.index), Number(target.dataset.folderIndex));
+          render();
+        }
         if (target.matches("[data-remove-value]")) {
           state.data.values.splice(Number(target.dataset.removeValue), 1);
           render();
@@ -1335,6 +1445,9 @@ HTML = r"""<!doctype html>
     function addRepository() {
       state.data.repositories.push("");
       forEachRepoArray((values) => values.push(""));
+      if (state.repoDetailsDefault) {
+        state.expandedRepos.add(state.data.repositories.length - 1);
+      }
     }
 
     function removeRepository(index) {
@@ -1379,6 +1492,29 @@ HTML = r"""<!doctype html>
         state.expandedRepos.delete(index);
       } else {
         state.expandedRepos.add(index);
+      }
+    }
+
+    function expandAllRepositoryDetails() {
+      state.expandedRepos = new Set(state.data.repositories.map((_, index) => index));
+    }
+
+    function collapseAllRepositoryDetails() {
+      state.expandedRepos = new Set();
+    }
+
+    function trimExpandedRepositories() {
+      const total = state.data.repositories.length;
+      state.expandedRepos = new Set(
+        [...state.expandedRepos].filter((index) => index >= 0 && index < total)
+      );
+    }
+
+    function applyDefaultRepositoryDetails() {
+      if (state.repoDetailsDefault) {
+        expandAllRepositoryDetails();
+      } else {
+        trimExpandedRepositories();
       }
     }
 
@@ -1484,6 +1620,30 @@ HTML = r"""<!doctype html>
       syncRaw();
     }
 
+    async function chooseRepoFolderSource(index, folderIndex) {
+      const repo = repositoryObject(index);
+      const folder = repoFolders(repo)[folderIndex] || {};
+      const current = repoFolderSource(folder) || state.data.templates_root || getPath();
+      const body = await pickPath("folder", current, "Selecionar pasta extra do repositorio");
+      if (!body.path) return;
+      updateRepoFolder(index, folderIndex, "source", body.path);
+      render();
+      toast("Pasta extra selecionada");
+    }
+
+    function repositoryObject(index) {
+      const current = state.data.repositories[index];
+      if (typeof current === "object" && current !== null) return { ...current };
+      return { repo: repoLabel(current) };
+    }
+
+    function repoFolderObject(folder) {
+      return {
+        source: repoFolderSource(folder),
+        target: repoFolderTarget(folder)
+      };
+    }
+
     function updateRepo(index, field, value) {
       const current = state.data.repositories[index];
       if (typeof current === "string" && field === "repo") {
@@ -1506,6 +1666,32 @@ HTML = r"""<!doctype html>
       }
       next[field] = value;
       state.data.repositories[index] = next;
+    }
+
+    function addRepoFolder(index) {
+      const repo = repositoryObject(index);
+      const folders = repoFolders(repo).map(repoFolderObject);
+      folders.push({ source: "", target: "" });
+      repo.folders = folders;
+      state.data.repositories[index] = repo;
+      state.expandedRepos.add(index);
+    }
+
+    function removeRepoFolder(index, folderIndex) {
+      const repo = repositoryObject(index);
+      const folders = repoFolders(repo).map(repoFolderObject);
+      folders.splice(folderIndex, 1);
+      repo.folders = folders;
+      state.data.repositories[index] = repo;
+    }
+
+    function updateRepoFolder(index, folderIndex, field, value) {
+      const repo = repositoryObject(index);
+      const folders = repoFolders(repo).map(repoFolderObject);
+      while (folders.length <= folderIndex) folders.push({ source: "", target: "" });
+      folders[folderIndex] = { ...folders[folderIndex], [field]: value };
+      repo.folders = folders;
+      state.data.repositories[index] = repo;
     }
 
     function updateValue(index, field, target) {
@@ -1574,6 +1760,7 @@ HTML = r"""<!doctype html>
       state.data = normalize(body.data);
       state.exists = body.exists;
       $("#configPath").value = body.path;
+      applyDefaultRepositoryDetails();
       render();
       toast(body.exists ? "Arquivo carregado" : "Exemplo inicial carregado");
     }
@@ -1655,6 +1842,16 @@ HTML = r"""<!doctype html>
       $("#checkRemoteBtn").addEventListener("click", () => startJob("check-remote").catch((error) => toast(error.message)));
       $("#planBtn").addEventListener("click", () => startJob("plan").catch((error) => toast(error.message)));
       $("#executeBtn").addEventListener("click", () => startJob("execute").catch((error) => toast(error.message)));
+      $("#repoDetailsDefault").addEventListener("change", () => {
+        state.repoDetailsDefault = $("#repoDetailsDefault").checked;
+        writeStoredFlag(repoDetailsDefaultKey, state.repoDetailsDefault);
+        if (state.repoDetailsDefault) {
+          expandAllRepositoryDetails();
+        } else {
+          collapseAllRepositoryDetails();
+        }
+        render();
+      });
       $("#addRepoBtn").addEventListener("click", () => {
         addRepository();
         render();
@@ -1670,6 +1867,7 @@ HTML = r"""<!doctype html>
       $("#applyJsonBtn").addEventListener("click", () => {
         try {
           state.data = normalize(JSON.parse($("#jsonEditor").value));
+          applyDefaultRepositoryDetails();
           render();
           toast("JSON aplicado");
         } catch (error) {

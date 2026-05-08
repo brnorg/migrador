@@ -46,6 +46,12 @@ class PullRequestSpec:
 
 
 @dataclass
+class RepositoryFolderSpec:
+    source: str = ""
+    target: str = ""
+
+
+@dataclass
 class RepositorySpec:
     owner: str = ""
     name: str = ""
@@ -54,6 +60,7 @@ class RepositorySpec:
     branch: str = ""
     base: str = ""
     default_branch: str = ""
+    folders: list[RepositoryFolderSpec] = field(default_factory=list)
     variables: list[NamedValue] = field(default_factory=list)
     secrets: list[NamedValue] = field(default_factory=list)
     environments: list[EnvironmentSpec] = field(default_factory=list)
@@ -341,12 +348,60 @@ def _parse_repositories(node: Any) -> list[RepositorySpec]:
                 branch=str(raw.get("branch", raw.get("branch_name", "")) or ""),
                 base=str(raw.get("base", raw.get("default_branch", "")) or ""),
                 default_branch=str(raw.get("default_branch", "") or ""),
+                folders=_parse_repository_folders(
+                    raw.get(
+                        "folders",
+                        raw.get(
+                            "extra_folders",
+                            raw.get(
+                                "template_folders",
+                                raw.get("source_folders", raw.get("sources", [])),
+                            ),
+                        ),
+                    )
+                ),
                 variables=_parse_named_values(raw.get("repo_variables", raw.get("variables", []))),
                 secrets=_parse_named_values(raw.get("repo_secrets", raw.get("secrets", []))),
                 environments=_parse_environments(raw.get("environments", [])),
             )
         )
     return repositories
+
+
+def _parse_repository_folders(node: Any) -> list[RepositoryFolderSpec]:
+    folders: list[RepositoryFolderSpec] = []
+    if isinstance(node, str):
+        node = [node]
+    elif isinstance(node, dict):
+        keys = {"source", "path", "folder", "from"}
+        if keys.intersection(node):
+            node = [node]
+        else:
+            node = [{"source": source, "target": target} for source, target in node.items()]
+    if not isinstance(node, list):
+        return folders
+
+    for raw in node:
+        if isinstance(raw, str):
+            folders.append(RepositoryFolderSpec(source=raw))
+            continue
+        if not isinstance(raw, dict):
+            continue
+        source = raw.get("source", raw.get("path", raw.get("folder", raw.get("from", ""))))
+        target = raw.get(
+            "target",
+            raw.get(
+                "destination",
+                raw.get("dest", raw.get("repository_path", raw.get("repo_path", raw.get("to", "")))),
+            ),
+        )
+        folders.append(
+            RepositoryFolderSpec(
+                source=str(source or ""),
+                target=str(target or ""),
+            )
+        )
+    return folders
 
 
 def _parse_settings(node: Any) -> tuple[list[NamedValue], list[NamedValue], list[EnvironmentSpec]]:

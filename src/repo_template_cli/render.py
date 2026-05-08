@@ -17,6 +17,12 @@ class RenderedFile:
     mode: str = "100644"
 
 
+@dataclass(frozen=True)
+class TemplateSource:
+    root: Path
+    target: str = ""
+
+
 def build_environment() -> Environment:
     env = Environment(
         autoescape=False,
@@ -62,6 +68,7 @@ def render_template_tree(
     exclude: list[str] | None = None,
     repo_overlay_names: list[str] | None = None,
     all_repo_overlay_names: set[str] | None = None,
+    extra_sources: list[TemplateSource] | None = None,
 ) -> list[Path]:
     destination_dir = destination_dir.resolve()
     written: list[Path] = []
@@ -72,6 +79,7 @@ def render_template_tree(
         exclude,
         repo_overlay_names=repo_overlay_names,
         all_repo_overlay_names=all_repo_overlay_names,
+        extra_sources=extra_sources,
     ):
         target = (destination_dir / Path(file.path)).resolve()
         _ensure_under_directory(target, destination_dir)
@@ -88,6 +96,7 @@ def render_template_files(
     exclude: list[str] | None = None,
     repo_overlay_names: list[str] | None = None,
     all_repo_overlay_names: set[str] | None = None,
+    extra_sources: list[TemplateSource] | None = None,
 ) -> list[RenderedFile]:
     template_dir = template_dir.resolve()
     exclude = exclude or []
@@ -102,6 +111,18 @@ def render_template_files(
         for file in _render_files_from_root(overlay_dir, overlay_dir, context, exclude, set()):
             _add_rendered_file(rendered_by_path, seen_paths, file, allow_replace=True)
 
+    for source in extra_sources or []:
+        source_root = source.root.resolve()
+        for file in _render_files_from_root(
+            source_root,
+            source_root,
+            context,
+            exclude,
+            set(),
+            target_prefix=source.target,
+        ):
+            _add_rendered_file(rendered_by_path, seen_paths, file, allow_replace=True)
+
     return list(rendered_by_path.values())
 
 
@@ -111,6 +132,7 @@ def _render_files_from_root(
     context: dict[str, object],
     exclude: list[str],
     skip_top_level: set[str],
+    target_prefix: str = "",
 ) -> list[RenderedFile]:
     rendered: list[RenderedFile] = []
     for source in sorted(root_dir.rglob("*")):
@@ -125,7 +147,10 @@ def _render_files_from_root(
         if _is_excluded(rel_posix, exclude) or _is_internal_path(rel):
             continue
 
-        rendered_rel = _render_relative_path(rel_posix, context)
+        rendered_rel = _join_rendered_path(
+            _render_destination_prefix(target_prefix, context),
+            _render_relative_path(rel_posix, context),
+        )
 
         if _looks_binary(source):
             rendered.append(RenderedFile(path=rendered_rel, content=source.read_bytes(), text=None))
@@ -206,16 +231,35 @@ def _is_internal_path(rel: Path) -> bool:
     return any(part in {".git", "__pycache__", ".DS_Store"} for part in rel.parts)
 
 
-def _render_relative_path(rel_posix: str, context: dict[str, object]) -> str:
+def _render_relative_path(
+    rel_posix: str,
+    context: dict[str, object],
+    strip_j2: bool = True,
+) -> str:
     rendered_rel = render_string(rel_posix, context)
-    if rendered_rel.endswith(".j2"):
+    if strip_j2 and rendered_rel.endswith(".j2"):
         rendered_rel = rendered_rel[:-3]
-    if rendered_rel.startswith("/") or rendered_rel.startswith("\\"):
+    if rendered_rel.startswith("/") or rendered_rel.startswith("\\") or Path(rendered_rel).is_absolute():
         raise ValueError(f"Template tentou criar caminho absoluto: {rendered_rel}")
     parts = Path(rendered_rel).parts
     if any(part == ".." for part in parts):
         raise ValueError(f"Template tentou criar caminho fora do destino: {rendered_rel}")
     return rendered_rel.replace("\\", "/")
+
+
+def _render_destination_prefix(value: str, context: dict[str, object]) -> str:
+    value = str(value or "").strip()
+    if not value or value == ".":
+        return ""
+    return _render_relative_path(value.strip("/\\"), context, strip_j2=False)
+
+
+def _join_rendered_path(prefix: str, rel_path: str) -> str:
+    if not prefix:
+        return rel_path
+    if not rel_path:
+        return prefix
+    return f"{prefix.rstrip('/')}/{rel_path.lstrip('/')}"
 
 
 def _protect_github_actions_expressions(value: str) -> tuple[str, list[str]]:
