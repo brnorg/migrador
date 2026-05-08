@@ -431,6 +431,36 @@ HTML = r"""<!doctype html>
       gap: 10px;
     }
 
+    .repo-scoped {
+      display: grid;
+      gap: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .repo-scoped-section {
+      display: grid;
+      gap: 10px;
+    }
+
+    .repo-scoped-head {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .repo-scoped-items {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .repo-scoped-item {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
     .field-note {
       color: var(--muted);
       font-size: 12px;
@@ -619,7 +649,7 @@ HTML = r"""<!doctype html>
       }
       .topbar { gap: 12px; }
       .file-state { max-width: 100%; }
-      .grid, .grid.three, .job-layout { grid-template-columns: 1fr; }
+      .grid, .grid.three, .job-layout, .repo-scoped-items { grid-template-columns: 1fr; }
       main { padding: 24px 18px 36px; }
       h1 { font-size: 34px; }
     }
@@ -957,11 +987,62 @@ HTML = r"""<!doctype html>
       }).join("");
 
       return `
-        <div class="value-toolbar">
+        <div class="value-toolbar wide">
           <span>Valor separado por repositorio</span>
           <button type="button" ${modeAttr}="single" data-index="${index}">Usar valor unico</button>
         </div>
-        <div class="repo-value-list wide">${rows}</div>`;
+        ${state.data.repositories.length
+          ? '<div class="field-note wide">Editavel na secao Repositorios.</div>'
+          : `<div class="repo-value-list wide">${rows}</div>`}`;
+    }
+
+    function settingScopeLabel(setting) {
+      if (setting.scope === "environment") {
+        return `environment${setting.environment ? `: ${setting.environment}` : ""}`;
+      }
+      return "repository";
+    }
+
+    function renderRepoScopedSection(title, rows) {
+      if (!rows.length) return "";
+      return `
+        <div class="repo-scoped-section">
+          <div class="repo-scoped-head">${escapeHtml(title)}</div>
+          <div class="repo-scoped-items">${rows.join("")}</div>
+        </div>`;
+    }
+
+    function renderRepositoryScopedEditors(repoIndex) {
+      const fieldRows = state.data.values
+        .map((field, index) => {
+          if (!Array.isArray(field.value)) return "";
+          const name = valueLabel(field.name || field.label, index);
+          return `
+            <label class="repo-scoped-item">${escapeHtml(name)}
+              ${renderValueControl("value", "value-array", index, field.value[repoIndex], "data-value-position", repoIndex, false)}
+            </label>`;
+        })
+        .filter(Boolean);
+
+      const settingRows = state.data.settings
+        .map((setting, index) => {
+          if (!Array.isArray(setting.value)) return "";
+          const name = valueLabel(setting.name, index);
+          const type = setting.type === "secret" ? "secret" : "variable";
+          const label = `${type} ${name} (${settingScopeLabel(setting)})`;
+          return `
+            <label class="repo-scoped-item">${escapeHtml(label)}
+              ${renderValueControl("setting", "value-array", index, setting.value[repoIndex], "data-setting-position", repoIndex, setting.type === "secret")}
+            </label>`;
+        })
+        .filter(Boolean);
+
+      if (!fieldRows.length && !settingRows.length) return "";
+      return `
+        <div class="repo-scoped">
+          ${renderRepoScopedSection("Campos Jinja deste repositorio", fieldRows)}
+          ${renderRepoScopedSection("Vars e secrets deste repositorio", settingRows)}
+        </div>`;
     }
 
     function syncRaw() {
@@ -1062,6 +1143,7 @@ HTML = r"""<!doctype html>
                 <label>Base<input data-repo-field="base" data-index="${index}" value="${escapeHtml(objectRepo.base || objectRepo.default_branch || "")}"></label>
               ` : ""}
             </div>
+            ${renderRepositoryScopedEditors(index)}
           </div>`;
       }).join("");
     }
