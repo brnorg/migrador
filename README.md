@@ -46,6 +46,13 @@ repo-template ui --config control.json --port 8899 --no-open
 repo-template run --config control.json
 ```
 
+Ao final da execucao, a CLI imprime uma linha JSON com um array contendo
+somente as URLs das pull requests abertas/reutilizadas:
+
+```json
+["https://github.com/sua-org/repo-a/pull/123", "https://github.com/sua-org/repo-b/pull/456"]
+```
+
 Antes de alterar qualquer repositorio, a CLI mostra uma revisao com:
 
 - repositorios alvo;

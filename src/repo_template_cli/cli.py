@@ -1053,6 +1053,16 @@ def print_results(results: list[RepoResult]) -> None:
             str(result.skipped_blank),
         )
     console.print(table)
+    console.print("Pull request URLs abertas:")
+    print(json.dumps(open_pull_request_urls(results), ensure_ascii=False))
+
+
+def open_pull_request_urls(results: list[RepoResult]) -> list[str]:
+    return [
+        result.pr_url
+        for result in results
+        if result.pr_url.startswith(("http://", "https://"))
+    ]
 
 
 def example_config() -> dict[str, Any]:
