@@ -73,18 +73,28 @@ def render_template_tree(
     destination_dir = destination_dir.resolve()
     written: list[Path] = []
 
-    for file in render_template_files(
+    files = render_template_files(
         template_dir,
         context,
         exclude,
         repo_overlay_names=repo_overlay_names,
         all_repo_overlay_names=all_repo_overlay_names,
         extra_sources=extra_sources,
-    ):
+    )
+    rendered_paths = {file.path for file in files}
+
+    for file in files:
         target = (destination_dir / Path(file.path)).resolve()
         _ensure_under_directory(target, destination_dir)
 
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_file() and target.read_bytes() != file.content:
+            backup_rel = overwritten_backup_path(file.path)
+            backup = (destination_dir / Path(backup_rel)).resolve()
+            _ensure_under_directory(backup, destination_dir)
+            if backup_rel not in rendered_paths and not backup.exists():
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                backup.write_bytes(target.read_bytes())
         target.write_bytes(file.content)
         written.append(target)
     return written
@@ -124,6 +134,13 @@ def render_template_files(
             _add_rendered_file(rendered_by_path, seen_paths, file, allow_replace=True)
 
     return list(rendered_by_path.values())
+
+
+def overwritten_backup_path(path: str) -> str:
+    """Return the repository path used to preserve an overwritten file."""
+    source = Path(path)
+    backup_name = f"{source.stem}_m{source.suffix}"
+    return (source.parent / backup_name).as_posix()
 
 
 def _render_files_from_root(

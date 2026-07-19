@@ -98,6 +98,12 @@ gh auth login
 
 ou defina `GITHUB_TOKEN`/`GH_TOKEN` com permissoes para repositorios, pull requests, variables e secrets.
 
+> **TLS:** as chamadas feitas diretamente pela API Python e as operacoes HTTPS do
+> Git ignoram a validacao de certificados. Essa configuracao atende ambientes com
+> interceptacao HTTPS, como Zscaler, mas permite ataques de intermediario e pode
+> expor tokens. O GitHub CLI (`gh`) nao disponibiliza uma opcao oficial equivalente;
+> suas chamadas continuam seguindo a configuracao de certificados do sistema.
+
 ## JSON de controle
 
 O formato principal e simples: `repositories`, `values` e `settings`.
@@ -218,3 +224,5 @@ Tambem e possivel declarar pastas extras diretamente no JSON de cada repositorio
 ```
 
 No exemplo acima, os arquivos dentro de `../arquivos-bash` sao renderizados e criados em `scripts/` no repositorio. Se `target` ficar vazio, os arquivos entram na raiz do repositorio. `source` pode ser absoluto ou relativo ao arquivo de controle, e `target` sempre deve ser relativo ao repositorio.
+
+Quando um arquivo renderizado substitui um arquivo diferente que ja existe no repositorio, a versao anterior e preservada com o sufixo `_m` antes da extensao. Por exemplo, antes de atualizar `config.yml`, a CLI salva seu conteudo atual como `config_m.yml`. Arquivos novos ou com conteudo identico nao geram backup. Se `config_m.yml` ja existir no repositorio ou tambem for gerado pelo template, nenhum novo backup e criado e a execucao continua normalmente.

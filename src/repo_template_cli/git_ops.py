@@ -44,6 +44,9 @@ def run(
     env = os.environ.copy()
     if command and command[0] == "git":
         env.setdefault("GIT_TERMINAL_PROMPT", "0")
+        # Aceita certificados interceptados ou nao confiaveis em todas as
+        # operacoes HTTPS executadas pelo Git.
+        env["GIT_SSL_NO_VERIFY"] = "true"
     try:
         completed = subprocess.run(
             command,
