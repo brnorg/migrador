@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
+import hashlib
 import os
 
 import requests
 
 from . import git_ops
-from .render import RenderedFile
+from .render import RenderedFile, overwritten_backup_path
 
 
 class GitHubApiError(RuntimeError):
@@ -87,6 +88,10 @@ class GitHubClient:
         data = self._request("POST", f"/repos/{owner}/{repo}/git/trees", json=payload)
         return str(data["sha"])
 
+    def get_tree(self, owner: str, repo: str, tree_sha: str, recursive: bool = False) -> dict:
+        params = {"recursive": "1"} if recursive else None
+        return self._request("GET", f"/repos/{owner}/{repo}/git/trees/{tree_sha}", params=params)
+
     def create_commit(self, owner: str, repo: str, message: str, tree: str, parents: list[str]) -> dict:
         payload = {"message": message, "tree": tree, "parents": parents}
         return self._request("POST", f"/repos/{owner}/{repo}/git/commits", json=payload)
@@ -111,7 +116,29 @@ class GitHubClient:
         head_tree_sha = str(head_commit["tree"]["sha"])
 
         tree_entries = []
+        current_tree = self.get_tree(owner, repo, head_tree_sha, recursive=True)
+        if current_tree.get("truncated"):
+            raise GitHubApiError("Arvore do repositorio truncada; nao e seguro preservar arquivos sobrescritos.")
+        current_files = {
+            str(entry["path"]): entry
+            for entry in current_tree.get("tree", [])
+            if entry.get("type") == "blob"
+        }
+        rendered_paths = {file.path for file in files}
         for file in files:
+            current = current_files.get(file.path)
+            current_sha = str(current.get("sha", "")) if current else ""
+            if current and current_sha != _git_blob_sha(file.content):
+                backup_path = overwritten_backup_path(file.path)
+                if backup_path not in rendered_paths and backup_path not in current_files:
+                    tree_entries.append(
+                        {
+                            "path": backup_path,
+                            "mode": str(current.get("mode", "100644")),
+                            "type": "blob",
+                            "sha": current_sha,
+                        }
+                    )
             entry = {"path": file.path, "mode": file.mode, "type": "blob"}
             if file.text is not None:
                 entry["content"] = file.text
@@ -201,3 +228,8 @@ class GitHubClient:
         if response.status_code == 204:
             return None
         return response.json()
+
+
+def _git_blob_sha(content: bytes) -> str:
+    header = f"blob {len(content)}\0".encode("ascii")
+    return hashlib.sha1(header + content).hexdigest()
