@@ -6,6 +6,7 @@ import hashlib
 import os
 
 import requests
+import urllib3
 
 from . import git_ops
 from .render import RenderedFile, overwritten_backup_path
@@ -34,6 +35,10 @@ class ApiCommitResult:
 class GitHubClient:
     def __init__(self, token: str) -> None:
         self.session = requests.Session()
+        # Ambientes corporativos podem interceptar HTTPS (por exemplo, Zscaler).
+        # Esta ferramenta foi configurada para aceitar qualquer certificado TLS.
+        self.session.verify = False
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self.session.headers.update(
             {
                 "Accept": "application/vnd.github+json",

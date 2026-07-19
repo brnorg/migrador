@@ -98,6 +98,12 @@ gh auth login
 
 ou defina `GITHUB_TOKEN`/`GH_TOKEN` com permissoes para repositorios, pull requests, variables e secrets.
 
+> **TLS:** as chamadas feitas diretamente pela API Python e as operacoes HTTPS do
+> Git ignoram a validacao de certificados. Essa configuracao atende ambientes com
+> interceptacao HTTPS, como Zscaler, mas permite ataques de intermediario e pode
+> expor tokens. O GitHub CLI (`gh`) nao disponibiliza uma opcao oficial equivalente;
+> suas chamadas continuam seguindo a configuracao de certificados do sistema.
+
 ## JSON de controle
 
 O formato principal e simples: `repositories`, `values` e `settings`.
