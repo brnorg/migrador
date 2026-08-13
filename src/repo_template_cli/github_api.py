@@ -9,7 +9,7 @@ import requests
 import urllib3
 
 from . import git_ops
-from .render import RenderedFile, overwritten_backup_path
+from .render import RenderedFile, overwritten_backup_path, should_preserve_overwritten_file
 
 
 class GitHubApiError(RuntimeError):
@@ -133,7 +133,11 @@ class GitHubClient:
         for file in files:
             current = current_files.get(file.path)
             current_sha = str(current.get("sha", "")) if current else ""
-            if current and current_sha != _git_blob_sha(file.content):
+            if (
+                current
+                and current_sha != _git_blob_sha(file.content)
+                and should_preserve_overwritten_file(file.path)
+            ):
                 backup_path = overwritten_backup_path(file.path)
                 if backup_path not in rendered_paths and backup_path not in current_files:
                     tree_entries.append(
