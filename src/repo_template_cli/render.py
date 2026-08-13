@@ -88,12 +88,12 @@ def render_template_tree(
         _ensure_under_directory(target, destination_dir)
 
         target.parent.mkdir(parents=True, exist_ok=True)
+        backup_rel = overwritten_backup_path(file.path)
         if (
-            target.is_file()
+            backup_rel is not None
+            and target.is_file()
             and target.read_bytes() != file.content
-            and should_preserve_overwritten_file(file.path)
         ):
-            backup_rel = overwritten_backup_path(file.path)
             backup = (destination_dir / Path(backup_rel)).resolve()
             _ensure_under_directory(backup, destination_dir)
             if backup_rel not in rendered_paths and not backup.exists():
@@ -140,16 +140,22 @@ def render_template_files(
     return list(rendered_by_path.values())
 
 
-def overwritten_backup_path(path: str) -> str:
-    """Return the repository path used to preserve an overwritten file."""
-    source = Path(path)
+def overwritten_backup_path(path: str) -> str | None:
+    """Return an ``_m`` backup path only for files inside GitHub workflows."""
+    source = PurePosixPath(path.replace("\\", "/"))
+    if not _is_github_workflow_path(source):
+        return None
     backup_name = f"{source.stem}_m{source.suffix}"
     return (source.parent / backup_name).as_posix()
 
 
 def should_preserve_overwritten_file(path: str) -> bool:
     """Return whether an overwritten repository file needs an ``_m`` backup."""
-    parts = PurePosixPath(path.replace("\\", "/")).parts
+    return _is_github_workflow_path(PurePosixPath(path.replace("\\", "/")))
+
+
+def _is_github_workflow_path(path: PurePosixPath) -> bool:
+    parts = path.parts
     return len(parts) > 2 and parts[:2] == (".github", "workflows")
 
 
