@@ -138,6 +138,7 @@ Variables/secrets usam `gh variable set`, `gh secret set` e `gh api` para garant
 - Preserve compatibilidade do schema em `config.py`; ha varios aliases intencionais.
 - Proteja a seguranca de caminhos em `render.py`.
 - Nao quebre a preservacao de `${{ ... }}`.
+- Crie backups com sufixo `_m` somente para arquivos sobrescritos dentro de `.github/workflows/`.
 - Para mudancas na CLI, valide com comandos locais e exemplos antes de considerar pronto.
 - Para UI, confira que as acoes continuam chamando `python -m repo_template_cli.cli` com `--non-interactive` nos jobs automatizados.
 - Nao reverta alteracoes existentes do usuario em `README.md`, `src/repo_template_cli/cli.py` ou outros arquivos.

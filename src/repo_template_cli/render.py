@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import fnmatch
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import unicodedata
 
@@ -88,7 +88,11 @@ def render_template_tree(
         _ensure_under_directory(target, destination_dir)
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        if target.is_file() and target.read_bytes() != file.content:
+        if (
+            target.is_file()
+            and target.read_bytes() != file.content
+            and should_preserve_overwritten_file(file.path)
+        ):
             backup_rel = overwritten_backup_path(file.path)
             backup = (destination_dir / Path(backup_rel)).resolve()
             _ensure_under_directory(backup, destination_dir)
@@ -141,6 +145,12 @@ def overwritten_backup_path(path: str) -> str:
     source = Path(path)
     backup_name = f"{source.stem}_m{source.suffix}"
     return (source.parent / backup_name).as_posix()
+
+
+def should_preserve_overwritten_file(path: str) -> bool:
+    """Return whether an overwritten repository file needs an ``_m`` backup."""
+    parts = PurePosixPath(path.replace("\\", "/")).parts
+    return len(parts) > 2 and parts[:2] == (".github", "workflows")
 
 
 def _render_files_from_root(
