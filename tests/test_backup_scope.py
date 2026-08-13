@@ -5,7 +5,12 @@ import tempfile
 import unittest
 
 from repo_template_cli.github_api import GitHubClient
-from repo_template_cli.render import RenderedFile, render_template_tree, should_preserve_overwritten_file
+from repo_template_cli.render import (
+    RenderedFile,
+    overwritten_backup_path,
+    render_template_tree,
+    should_preserve_overwritten_file,
+)
 
 
 class RecordingGitHubClient(GitHubClient):
@@ -58,6 +63,16 @@ class BackupScopeTests(unittest.TestCase):
         self.assertFalse(should_preserve_overwritten_file(".github/actions/ci.yml"))
         self.assertFalse(should_preserve_overwritten_file("other/.github/workflows/ci.yml"))
         self.assertFalse(should_preserve_overwritten_file(".github/workflows-old/ci.yml"))
+
+    def test_backup_path_cannot_be_generated_outside_github_workflows(self) -> None:
+        self.assertEqual(
+            overwritten_backup_path(".github/workflows/ci.yml"),
+            ".github/workflows/ci_m.yml",
+        )
+        self.assertIsNone(overwritten_backup_path("config.yml"))
+        self.assertIsNone(overwritten_backup_path("src/config.yml"))
+        self.assertIsNone(overwritten_backup_path(".github/actions/ci.yml"))
+        self.assertIsNone(overwritten_backup_path("other/.github/workflows/ci.yml"))
 
     def test_git_render_creates_backup_only_in_github_workflows(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
